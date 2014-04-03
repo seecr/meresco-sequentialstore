@@ -85,9 +85,9 @@ public class SeqStorageIndex {
         this.stampType.setIndexOptions(IndexOptions.DOCS_ONLY);
 
         Directory directory = FSDirectory.open(new File(path));
-        IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_43, null);
+        IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_48, null);
         config.setRAMBufferSizeMB(256.0);  // faster
-        //config.setUseCompoundFile(false);  // faster, for Lucene 4.4 and later
+        config.setUseCompoundFile(false);  // faster, for Lucene 4.4 and later
         MergePolicy mergePolicy = config.getMergePolicy();
         MergePolicy sortingMergePolicy = new SortingMergePolicy(mergePolicy, new Sort(new SortField("value", SortField.Type.LONG)));
         config.setMergePolicy(sortingMergePolicy);
