@@ -1,0 +1,8 @@
+python-meresco-core (>= 4.0.4.2)
+python-meresco-core (<< 4.1)
+python-weightless-core (>= 0.9.22)
+python-weightless-core (<< 0.10)
+python-escaping (>= 0.1.2)
+python-escaping (<< 0.2)
+pylucene (>= 4.3.0)
+pylucene (<< 4.4.0)
