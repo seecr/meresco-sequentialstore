@@ -29,18 +29,15 @@ rm -rf tmp build
 mydir=$(cd $(dirname $0); pwd)
 source /usr/share/seecr-test/functions
 
-pyversions="2.6"
+pyversion="2.6"
 if distro_is_debian_wheezy; then
-    pyversions="2.6 2.7"
+    pyversion="2.7"
 fi
 
 VERSION="x.y.z"
 
-for pyversion in $pyversions; do
-    definePythonVars $pyversion
-    echo "###### $pyversion, $PYTHON"
-    ${PYTHON} setup.py install --root tmp
-done
+definePythonVars $pyversion
+${PYTHON} setup.py install --root tmp
 cp -r test tmp/test
 removeDoNotDistribute tmp
 find tmp -name '*.py' -exec sed -r -e "
@@ -48,6 +45,5 @@ find tmp -name '*.py' -exec sed -r -e "
     s/\\\$Version:[^\\\$]*\\\$/\\\$Version: ${VERSION}\\\$/;
     " -i '{}' \;
 
-cp -r test tmp/test
 runtests "$@"
 rm -rf tmp build

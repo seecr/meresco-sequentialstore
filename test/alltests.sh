@@ -27,19 +27,10 @@
 export LANG=en_US.UTF-8
 export PYTHONPATH=.:"$PYTHONPATH"
 export WEIGHTLESS_COMPOSE_TEST="PYTHON"
-pyversions="python2.6"
+pycmd="python2.6"
 if [ -f /etc/debian_version ]; then
     if [ "$(cat /etc/debian_version | awk -F. '{print $1}')" = "7" ]; then
-        pyversions="python2.7"
+        pycmd="python2.7"
     fi
 fi
-option=$1
-if [ "${option:0:10}" == "--python2." ]; then
-    shift
-    pyversions="${option:2}"
-fi
-echo Found Python versions: $pyversions
-for pycmd in $pyversions; do
-    echo "================ $pycmd _alltests.py $@ ================"
-    $pycmd _alltests.py "$@"
-done
+$pycmd _alltests.py "$@"
