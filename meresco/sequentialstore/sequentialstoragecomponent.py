@@ -29,7 +29,7 @@ from os.path import join
 from time import time
 from warnings import warn
 
-from meresco.sequentialstore import SequentialMultiStorage
+from . import MultiSequentialStorage
 
 
 def importVM():
@@ -72,7 +72,7 @@ def lazyImport():
 class SequentialStorageComponent(object):
     def __init__(self, path, name=None):
         self._directory = join(path, "data")
-        self._storage = SequentialMultiStorage(self._directory)
+        self._storage = MultiSequentialStorage(self._directory)
         self._index = _Index(path + "/index")
         self._last_stamp = 0
         self._name = name
@@ -81,14 +81,18 @@ class SequentialStorageComponent(object):
         return self._storage.isEmpty()
 
     def add(self, identifier, partname, data):
-        stamp = int(time() * 1000000)
-        while stamp <= self._last_stamp:
-            stamp += 1
-        self._last_stamp = stamp
-        self._index[str(identifier)] = stamp
-        self._storage.addData(stamp, partname, data)
+        self._storage.addData(identifier, partname, data)
         return
         yield
+
+        # stamp = int(time() * 1000000)
+        # while stamp <= self._last_stamp:
+        #     stamp += 1
+        # self._last_stamp = stamp
+        # self._index[str(identifier)] = stamp
+        # self._storage.addData(stamp, partname, data)
+        # return
+        # yield
 
     def delete(self, identifier):
         del self._index[str(identifier)]

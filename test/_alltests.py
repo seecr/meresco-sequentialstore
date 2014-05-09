@@ -41,6 +41,7 @@ from warnings import simplefilter
 simplefilter('default')
 
 from sequentialstoragetest import SequentialStorageTest
+from multisequentialstoragetest import MultiSequentialStorageTest
 from sequentialstoragecomponenttest import SequentialStorageComponentTest
 
 

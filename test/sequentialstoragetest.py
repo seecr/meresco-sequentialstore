@@ -23,83 +23,72 @@
 #
 ## end license ##
 
-from os.path import join, isfile, isdir, dirname
-from seecr.test import SeecrTestCase
-from weightless.core import consume
-from meresco.sequentialstore import SequentialStorage, SequentialMultiStorage
-from meresco.sequentialstore.sequentialstorage import SENTINEL
+from os.path import join, dirname
 from random import random, randint
 from time import time
 from itertools import islice
 
+from seecr.test import SeecrTestCase
+from weightless.core import consume
+
+from meresco.sequentialstore import _SequentialStorage
+from meresco.sequentialstore.sequentialstorage import SENTINEL
+
 
 testDataDir = join(dirname(__file__), 'data')
-
 
 # Ideas:
 # - Galloping iso bisect for getMultiple
 # - Adjectenly entering new blk -> scan i.s.o. _readNext(), not needed - optimize?
 
 class SequentialStorageTest(SeecrTestCase):
-
-    def testWriteFilePerPart(self):
-        s = SequentialMultiStorage(self.tempdir)
-        consume(s.add(1, "oai_dc", "<data/>"))
-        consume(s.add(2, "rdf", "<rdf/>"))
-        self.assertTrue(isfile(join(self.tempdir, "oai_dc")))
-        self.assertTrue(isfile(join(self.tempdir, "rdf")))
-
-    def testGetForUnknownPart(self):
-        s = SequentialMultiStorage(self.tempdir)
-        self.assertRaises(IndexError, lambda: s.getData(42, 'oai_dc'))
+    def testSentinalWritten(self):
+        s = _SequentialStorage(self.tempfile)
+        s.add(3, "data")
+        s.flush()
+        self.assertEquals("----\n3\n12\nx\x9cKI,I\x04\x00\x04\x00\x01\x9b\n",
+                open(self.tempfile).read())
 
     def testGetForUnknownIdentifier(self):
-        s = SequentialMultiStorage(self.tempdir)
-        consume(s.add(1, "oai_dc", "x"))
-        self.assertRaises(IndexError, lambda: s.getData(42, 'oai_dc'))
+        s = _SequentialStorage(self.tempfile)
+        s.add(1, 'x')
+        self.assertRaises(IndexError, lambda: s[42])
 
-    def testReadWriteData(self):
-        s = SequentialMultiStorage(self.tempdir)
-        consume(s.add(1, "oai_dc", "<data/>"))
+    def testReadWriteKey(self):
+        s = _SequentialStorage(self.tempfile)
+        s.add(1, "<data>1</data>")
+        s.add(2, "<data>2</data>")
         s.flush()
-        sReopened = SequentialMultiStorage(self.tempdir)
-        self.assertEquals('<data/>', sReopened.getData(1, 'oai_dc'))
-
-    def testReadWriteIdentifier(self):
-        s = SequentialMultiStorage(self.tempdir)
-        consume(s.add(1, "oai_dc", "<data>1</data>"))
-        consume(s.add(2, "oai_dc", "<data>2</data>"))
-        s.flush()
-        sReopened = SequentialMultiStorage(self.tempdir)
-        self.assertEquals('<data>1</data>', sReopened.getData(1, 'oai_dc'))
-        self.assertEquals('<data>2</data>', sReopened.getData(2, 'oai_dc'))
+        sReopened = _SequentialStorage(self.tempfile)
+        self.assertEquals('<data>1</data>', sReopened[1])
+        self.assertEquals('<data>2</data>', sReopened[2])
 
     def testKeyIsMonotonicallyIncreasing(self):
-        s = SequentialMultiStorage(self.tempdir)
-        consume(s.add(3, "na",  "na"))
-        consume(s.add(4, "na",  "na"))
+        s = _SequentialStorage(self.tempfile)
+        s.add(3, "na")
+        s.add(4, "na")
         try:
-            consume(s.add(2, "na",  "na"))
+            consume(s.add(2, "na"))
             self.fail()
         except ValueError, e:
             self.assertEquals("key 2 must be greater than last key 4", str(e))
 
     def testNumbersAsStringIsProhibited(self):
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         s.add(2, "na")
         s.add(10, "na")
         self.assertRaises(ValueError, lambda: s.add('3', "na"))
 
     def testKeyIsMonotonicallyIncreasingAfterReload(self):
-        s = SequentialMultiStorage(self.tempdir)
-        consume(s.add(3, "na",  "na"))
+        s = _SequentialStorage(self.tempfile)
+        s.add(3, "na")
         s.flush()
-        s = SequentialMultiStorage(self.tempdir)
-        self.assertRaises(ValueError, lambda: consume(s.add(2, "na", "na")))
+        s = _SequentialStorage(self.tempfile)
+        self.assertRaises(ValueError, lambda: consume(s.add(2, "na")))
 
     def testDataCanBeEmptyButStoredItemIsNeverShorterThanBlocksize(self):
         blksiz = 11
-        s = SequentialStorage(self.tempfile, blockSize=11)
+        s = _SequentialStorage(self.tempfile, blockSize=11)
         s.add(0, '')
         s.flush()
         fileData = open(self.tempfile, 'rb').read()
@@ -111,53 +100,39 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEquals(blksiz - 1 + len(compress('')), len(fileData))
 
     def testLastKeyFoundInCaseOfLargeBlock(self):
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         s.add(1, 'record 1')
         s.add(2, 'long record' * 1000) # compressed multiple times BLOCKSIZE
         s.flush()
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         self.assertEquals(2, s._lastKey)
 
-    def testMonotonicityNotRequiredOverDifferentParts(self):
-        s = SequentialMultiStorage(self.tempdir)
-        consume(s.add(2, "oai_dc", "<data/>"))
-        consume(s.add(2, "rdf", "<rdf/>"))
-
-    def testNumericalKeys(self):
-        s = SequentialMultiStorage(self.tempdir)
-        consume(s.add(2, "oai_dc", "<two/>"))
-        consume(s.add(4, "oai_dc", "<four/>"))
-        consume(s.add(7, "oai_dc", "<seven/>"))
-        self.assertEquals([(2, '<two/>'), (4, '<four/>')], list(s.iterData("oai_dc", 1, 5)))
-        self.assertEquals([(7, '<seven/>')], list(s.iterData("oai_dc", 5, 9)))
-        self.assertEquals("<two/>", s.getData(2, "oai_dc"))
-
-    def testIterDataOnlyYieldsGivenKeys(self):
-        s = SequentialMultiStorage(self.tempdir)
-        consume(s.add(1, "oai_dc", "<one/>"))
-        consume(s.add(2, "oai_dc", "<two/>"))
-        consume(s.add(3, "oai_dc", "<three/>"))
-        consume(s.add(4, "oai_dc", "<four/>"))
-        result = list(s.getMultipleData("oai_dc", [2, 3]))
+    def testGetMultiple(self):
+        s = _SequentialStorage(self.tempfile)
+        s.add(1, "<one/>")
+        s.add(2, "<two/>")
+        s.add(3, "<three/>")
+        s.add(4, "<four/>")
+        result = list(s.getMultiple([2, 3]))
         self.assertEquals([(2, "<two/>"), (3, "<three/>")], result)
 
     def testGetMultipleNoResults(self):
-        s = SequentialMultiStorage(self.tempdir)
-        result = list(s.getMultipleData("na", []))
+        s = _SequentialStorage(self.tempfile)
+        result = list(s.getMultiple([]))
         self.assertEquals([], result)
 
     def testGetMultipleResultNotFound(self):
-        s = SequentialMultiStorage(self.tempdir)
+        s = _SequentialStorage(self.tempfile)
         try:
-            result = list(s.getMultipleData("na", [42]))
+            list(s.getMultiple([42]))
             self.fail()
         except KeyError, e:
             self.assertEquals('42', str(e))
 
     def testGetMultipleResultNotFound2(self):
-        s = SequentialMultiStorage(self.tempdir)
-        consume(s.add(1, "oai_dc", "<one/>"))
-        results = s.getMultipleData("oai_dc", [1, 2])
+        s = _SequentialStorage(self.tempfile)
+        s.add(1, "<one/>")
+        results = s.getMultiple([1, 2])
         key, data = results.next()
         self.assertEquals((1, "<one/>"), (key, data))
         try:
@@ -167,32 +142,21 @@ class SequentialStorageTest(SeecrTestCase):
             self.assertEquals('2', str(e))
 
     def testGetMultipleWithKeysInOneBlock(self):
-        s = SequentialStorage(self.tempfile, blockSize=102400)
+        s = _SequentialStorage(self.tempfile, blockSize=102400)
         s.add(1, "d1")
         s.add(2, "d2")
         s.add(3, "d3")
         result = list(s.getMultiple(keys=(1, 3)))
         self.assertEquals([(1, "d1"), (3, "d3")], result)
 
-    def testGetMultipleDataIgnoreMissingKeysWithFlag(self):
-        s = SequentialMultiStorage(self.tempdir)
-        result = list(s.getMultipleData(name='sub', keys=(1, 42), ignoreMissing=True))
-        self.assertEquals([], result)
-
-        s.addData(key=1, name="sub", data="d1")
-        s.addData(key=2, name="sub", data="d2")
-        s.addData(key=3, name="sub", data="d3")
-        result = list(s.getMultipleData(name="sub", keys=(1, 42), ignoreMissing=True))
-        self.assertEquals([(1, "d1")], result)
-
-    def testGetMultipleIgnoreMissingKeysWithFlag(self):
-        s = SequentialStorage(self.tempfile)
+    def testGetMultipleIgnoresMissingKeysWithFlag(self):
+        s = _SequentialStorage(self.tempfile)
         result = list(s.getMultiple(keys=(1, 42), ignoreMissing=True))
         self.assertEquals([], result)
 
-        s.add(1, "d1")
-        s.add(2, "d2")
-        s.add(3, "d3")
+        s.add(key=1, data="d1")
+        s.add(key=2, data="d2")
+        s.add(key=3, data="d3")
         result = list(s.getMultiple(keys=(1, 42), ignoreMissing=True))
         self.assertEquals([(1, "d1")], result)
 
@@ -207,14 +171,14 @@ class SequentialStorageTest(SeecrTestCase):
                 me.offsets.append(offset)
                 return me._f.seek(offset)
         f = File()
-        s = SequentialStorage("na", file_=f, blockSize=100)
+        s = _SequentialStorage("na", file_=f, blockSize=100)
         offsets = []
-        one = ''.join(chr(randint(0,255)) for _ in range(50))
-        three = ''.join(chr(randint(0,255)) for _ in range(50))
-        four = ''.join(chr(randint(0,255)) for _ in range(50))
+        one = ''.join(chr(randint(0,255)) for _ in xrange(50))
+        three = ''.join(chr(randint(0,255)) for _ in xrange(50))
+        four = ''.join(chr(randint(0,255)) for _ in xrange(50))
         s.add(1, one )
         offsets.append(f.tell())
-        s.add(2, ''.join(chr(randint(0,255)) for _ in range(50)))
+        s.add(2, ''.join(chr(randint(0,255)) for _ in xrange(50)))
         offsets.append(f.tell())
         s.add(3, three)
         offsets.append(f.tell())
@@ -228,7 +192,7 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEquals([0, offsets[0], offsets[2]], f.offsets)
 
     def testTwoAlternatingGetMultipleIterators(self):
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         s.add(2, "<data>two</data>")
         s.add(4, "<data>four</data>")
         s.add(7, "<data>seven</data>")
@@ -241,7 +205,7 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEquals((7, "<data>seven</data>"), i2.next())
 
     def testKeysMustBeSortedForGetMultiple(self):
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         s.add(1, 'x')
         s.add(2, '_')
         s.add(3, 'z')
@@ -260,7 +224,7 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertRaises(ValueError, lambda: result.next())
 
     def testKeysMustBeIntsForGetMultiple(self):
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         result = s.getMultiple(keys=['1'])
         try:
             result.next()
@@ -268,19 +232,12 @@ class SequentialStorageTest(SeecrTestCase):
             self.assertEquals('Expected int', str(e))
         else: self.fail()
 
-    def testSentinalWritten(self):
-        s = SequentialMultiStorage(self.tempdir)
-        consume(s.add(3, "na", "data"))
-        s.flush()
-        self.assertEquals("----\n3\n12\nx\x9cKI,I\x04\x00\x04\x00\x01\x9b\n",
-                open(join(self.tempdir, 'na')).read())
-
     def testGetItem(self):
         # getitem need not be completely correct for bisect to work
         # the functionality below is good enough I suppose.
         # As a side effect, it solves back scanning! We let
         # bisect do that for us.
-        s = SequentialStorage(self.tempfile, blockSize=11)
+        s = _SequentialStorage(self.tempfile, blockSize=11)
         self.assertEquals(0, len(s._blkIndex))
         s.add(2, "<data>two is nice</data>")
         s.add(4, "<data>four goes fine</data>")
@@ -298,7 +255,7 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertRaises(StopIteration, lambda: s._blkIndex.scan(8))
 
     def testIndexItem(self):
-        s = SequentialStorage(self.tempfile, blockSize=11)
+        s = _SequentialStorage(self.tempfile, blockSize=11)
         self.assertEquals(0, len(s._blkIndex))
         s.add(2, "<data>two</data>")
         s.add(4, "<data>four</data>")
@@ -309,7 +266,7 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEquals("<data>seven</data>", s[7])
 
     def testIndexNotFound(self):
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         self.assertRaises(IndexError, lambda: s[2])
         s.add(2, "<data>two</data>")
         self.assertRaises(IndexError, lambda: s[1])
@@ -320,7 +277,7 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertRaises(IndexError, lambda: s[5])
 
     def testIndexWithVerySmallAndVEryLargeRecord(self):
-        s = SequentialStorage(self.tempfile, blockSize=11)
+        s = _SequentialStorage(self.tempfile, blockSize=11)
         self.assertEquals(0, len(s._blkIndex))
         s.add(2, "<data>short</data>")
         s.add(4, ''.join("<%s>" % i for i in xrange(10000)))
@@ -329,12 +286,12 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEquals("<0><1><2><3><4><5><6", s[4][:20])
 
     def testNewLineInData(self):
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         s.add(4, "here follows\na new line")
         self.assertEquals("here follows\na new line", s[4])
 
     def testSentinelInData(self):
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         s.add(2, "<data>two</data>")
         s.add(5, ("abc%sxyz" % (SENTINEL+'\n')) * 10)
         s.add(7, "<data>seven</data>")
@@ -342,15 +299,8 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEquals("abc----\nxyzabc----\nx", s[5][:20])
         self.assertEquals("<data>seven</data>", s[7])
 
-    def testValidPartName(self):
-        s = SequentialMultiStorage(self.tempdir)
-        consume(s.add(2, "ma/am", "data"))
-        s.flush()
-        s = SequentialMultiStorage(self.tempdir)
-        self.assertEquals("data", s.getData(2, "ma/am"))
-
     def testReadNextWithTargetKey(self):
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         s.add(3, "three")
         s.add(4, "four")
         s.add(7, "seven")
@@ -373,7 +323,7 @@ class SequentialStorageTest(SeecrTestCase):
             pass
 
     def testTargetKeyGreaterOrEquals(self):
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         s.add(3, "three")
         s.add(7, "seven")
         s.add(9, "nine")
@@ -400,8 +350,8 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertTrue(2.5 < bz2_ratio < 2.6, bz2_ratio)
         self.assertTrue(3.2 < zlib_ratio < 3.3, zlib_ratio)
 
-    def testIterator(self):
-        s = SequentialStorage(self.tempfile)
+    def testRange(self):
+        s = _SequentialStorage(self.tempfile)
         s.add(2, "<data>two</data>")
         s.add(4, "<data>four</data>")
         s.add(7, "<data>seven</data>")
@@ -412,8 +362,8 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEquals((9, "<data>nine</data>"), i.next())
         self.assertRaises(StopIteration, lambda: i.next())
 
-    def testTwoAlternatingIterators(self):
-        s = SequentialStorage(self.tempfile)
+    def testTwoAlternatingRangeIterators(self):
+        s = _SequentialStorage(self.tempfile)
         s.add(2, "<data>two</data>")
         s.add(4, "<data>four</data>")
         s.add(7, "<data>seven</data>")
@@ -428,8 +378,8 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEquals((9, "<data>nine</data>"), i1.next())
         self.assertRaises(StopIteration, lambda: i1.next())
 
-    def testIteratorUntil(self):
-        s = SequentialStorage(self.tempfile)
+    def testRangeUntil(self):
+        s = _SequentialStorage(self.tempfile)
         s.add(2, "two")
         s.add(4, "four")
         s.add(6, "six")
@@ -445,32 +395,15 @@ class SequentialStorageTest(SeecrTestCase):
         i = s.range(5, 99)
         self.assertEquals([(6, "six"), (7, "seven"), (8, "eight"), (9, "nine")], list(i))
 
-    def testIterDataUntil(self):
-        s = SequentialMultiStorage(self.tempdir)
-        s.addData(name='oai_dc', key=2, data="two")
-        s.addData(name='oai_dc', key=4, data="four")
-        s.addData(name='oai_dc', key=6, data="six")
-        s.addData(name='oai_dc', key=7, data="seven")
-        s.addData(name='oai_dc', key=8, data="eight")
-        s.addData(name='oai_dc', key=9, data="nine")
-        i = s.iterData(name='oai_dc', start=0, stop=5)
-        self.assertEquals([(2, "two"), (4, "four")], list(i))
-        i = s.iterData(name='oai_dc', start=4, stop=7)
-        self.assertEquals([(4, "four"), (6, "six")], list(i))
-        i = s.iterData(name='oai_dc', start=4, stop=7, inclusive=True)
-        self.assertEquals([(4, "four"), (6, "six"), (7, 'seven')], list(i))
-        i = s.iterData(name='oai_dc', start=5, stop=99)
-        self.assertEquals([(6, "six"), (7, "seven"), (8, "eight"), (9, "nine")], list(i))
-
     def testBlockIndexHasAtLeastOneBlock(self):
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         self.assertEquals(0, len(s._blkIndex))
         s.add(key=2, data="two")
         self.assertEquals(1, len(s._blkIndex))
 
     def XXXtestBigBlock(self):
         path = self.createTestIndex("data/test.ss", count=2**20)
-        b = SequentialStorage(path)._blkIndex
+        b = _SequentialStorage(path)._blkIndex
         self.assertEquals(272633, len(b))
         self.assertEquals(0, b[0])
         self.assertEquals(4, b[1])
@@ -488,7 +421,7 @@ class SequentialStorageTest(SeecrTestCase):
 
     def createTestIndex(self, path, count=2**20):
         path = ".".join((path, str(count)))
-        s = SequentialStorage(path)
+        s = _SequentialStorage(path)
         t0 = time()
         if s.isEmpty():
             print "Creating test store in:", repr(path), "of", count, "items."
@@ -510,7 +443,7 @@ class SequentialStorageTest(SeecrTestCase):
             for _ in islice(s.range(randint(0, count-1)), size):
                 pass
         def read(blksiz=2**13, fread=readOne):
-            s = SequentialStorage(path, blockSize=blksiz)
+            s = _SequentialStorage(path, blockSize=blksiz)
             t0 = time()
             for i in xrange(1, 50001):
                 fread(s, count)
@@ -525,10 +458,6 @@ class SequentialStorageTest(SeecrTestCase):
         for blocksize in [2**n for n in range(14,15)]:
             print "==== Blksize:", blocksize, "===="
             read(blocksize, readBatch)
-
-    def testDirectoryCreatedIfNotExists(self):
-        SequentialMultiStorage(join(self.tempdir, "storage"))
-        self.assertTrue(isdir(join(self.tempdir, "storage")))
 
     def testShortRubbishAtStartOfFileIgnored(self):
         s = ReopeningSeqStorage(self).write('corrupt')
@@ -592,7 +521,7 @@ class SequentialStorageTest(SeecrTestCase):
             self.assertEquals([1, 5], s.keys())
 
     def testTargetKeySkipsRubbish(self):
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         s.add(5, "five")
         s._f.write("@!^$#%")
         s.add(6, "six")
@@ -600,7 +529,7 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEquals("six", s._readNext(6)[1])
 
     def testTargetKeyDoesNotSkipRecordWhenRubbishPresent(self):
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         s.add(5, "five")
         s._f.seek(-2, 1)
         s._f.write("@!^$#%")
@@ -609,7 +538,7 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEquals("six", s._readNext(6)[1])
 
     def testTargetKeyDoesNotSkipRecordThatHappensToBeTruncated(self):
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         s.add(5, "five")
         s._f.truncate(s._f.tell()-2)  # 5 becomes crap, but six is still ok
         s.add(6, "six")
@@ -628,7 +557,7 @@ class ReopeningSeqStorage(object):
         self.tempfile = testCase.tempfile
 
     def add(self, key, data):
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         s.add(key, data)
         s.flush()
         return self
@@ -637,7 +566,7 @@ class ReopeningSeqStorage(object):
         return [item[0] for item in self.items()]
 
     def items(self):
-        s = SequentialStorage(self.tempfile)
+        s = _SequentialStorage(self.tempfile)
         return list(s.range(0))
 
     def write(self, rubbish):
@@ -650,5 +579,5 @@ class ReopeningSeqStorage(object):
         return open(self.tempfile).read()
 
     def seqStorage(self):
-        return SequentialStorage(self.tempfile)
+        return _SequentialStorage(self.tempfile)
 

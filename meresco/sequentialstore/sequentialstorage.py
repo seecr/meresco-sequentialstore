@@ -23,65 +23,13 @@
 #
 ## end license ##
 
-from os.path import join, isdir, getsize
-from os import listdir, makedirs
-from escaping import escapeFilename
+from os.path import getsize
 from zlib import compress, decompress, error as ZlibError
 from math import ceil
 import operator
 
 
-SENTINEL = "----"
-RECORD = "%(sentinel)s\n%(key)s\n%(length)s\n%(data)s\n"
-LARGER_THAN_ANY_KEY = 2**64
-
-class SequentialMultiStorage(object):
-    def __init__(self, path, name=None):
-        self._path = path
-        self._name = name
-        isdir(self._path) or makedirs(self._path)
-        self._storage = {}
-        for name in listdir(path):
-            self._getStorage(name)
-
-    def observable_name(self):
-        return self._name
-
-    def _getStorage(self, name):
-        storage = self._storage.get(name)
-        if not storage:
-            name = escapeFilename(name)
-            self._storage[name] = storage = SequentialStorage(join(self._path, name))
-        return storage
-
-    def add(self, identifier, partname, data):
-        self.addData(key=identifier, name=partname, data=data)
-        return
-        yield
-
-    def addData(self, key, name, data):
-        self._getStorage(name).add(key, data)
-
-    def getData(self, key, name):
-        return self._getStorage(name)[key]
-
-    def iterData(self, name, start, stop=LARGER_THAN_ANY_KEY, **kwargs):
-        return self._getStorage(name).range(start, stop, **kwargs)
-
-    def getMultipleData(self, name, keys, ignoreMissing=False):
-        return self._getStorage(name).getMultiple(keys, ignoreMissing=ignoreMissing)
-
-    def handleShutdown(self):
-        print 'handle shutdown: saving SequentialMultiStorage %s' % self._path
-        from sys import stdout; stdout.flush()
-        self.flush()
-
-    def flush(self):
-        for storage in self._storage.itervalues():
-            storage.flush()
-
-
-class SequentialStorage(object):
+class _SequentialStorage(object):
     def __init__(self, fileName, file_=None, blockSize=8192):
         if file_:
             self._f = file_
@@ -158,7 +106,8 @@ class SequentialStorage(object):
             return key
         raise StopIteration
 
-    def range(self, start, stop=LARGER_THAN_ANY_KEY, inclusive=False):
+    def range(self, start, stop=None, inclusive=False):
+        stop = stop or LARGER_THAN_ANY_KEY
         _intcheck(start); _intcheck(stop)
         cmp = operator.le if inclusive else operator.lt
         blk = self._blkIndex.search(start)
@@ -197,6 +146,11 @@ class SequentialStorage(object):
 
             prev_blk = blk
             prev_key = key
+
+
+SENTINEL = "----"
+RECORD = "%(sentinel)s\n%(key)s\n%(length)s\n%(data)s\n"
+LARGER_THAN_ANY_KEY = 2**64
 
 
 class _BlkIndex(object):
