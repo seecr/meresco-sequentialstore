@@ -26,10 +26,10 @@
 from cStringIO import StringIO
 from os import getenv
 from os.path import join
-from time import time
 from warnings import warn
 
 from . import MultiSequentialStorage
+from time import time
 
 
 def importVM():
@@ -77,22 +77,15 @@ class SequentialStorageComponent(object):
         self._last_stamp = 0
         self._name = name
 
-    def isEmpty(self):
-        return self._storage.isEmpty()
-
     def add(self, identifier, partname, data):
-        self._storage.addData(identifier, partname, data)
+        stamp = int(time() * 1000000)
+        while stamp <= self._last_stamp:
+            stamp += 1
+        self._last_stamp = stamp
+        self._index[str(identifier)] = stamp
+        self._storage.addData(stamp, partname, data)
         return
         yield
-
-        # stamp = int(time() * 1000000)
-        # while stamp <= self._last_stamp:
-        #     stamp += 1
-        # self._last_stamp = stamp
-        # self._index[str(identifier)] = stamp
-        # self._storage.addData(stamp, partname, data)
-        # return
-        # yield
 
     def delete(self, identifier):
         del self._index[str(identifier)]

@@ -2,7 +2,7 @@ from os.path import join, isdir
 from os import listdir, makedirs
 from escaping import escapeFilename
 
-from sequentialstorage import _SequentialStorage
+from _sequentialstoragebynum import _SequentialStorageByNum
 
 
 class MultiSequentialStorage(object):
@@ -21,7 +21,7 @@ class MultiSequentialStorage(object):
         storage = self._storage.get(name)
         if not storage:
             name = escapeFilename(name)
-            self._storage[name] = storage = _SequentialStorage(join(self._path, name))
+            self._storage[name] = storage = _SequentialStorageByNum(join(self._path, name))
         return storage
 
     def add(self, identifier, partname, data):

@@ -40,6 +40,7 @@ import unittest
 from warnings import simplefilter
 simplefilter('default')
 
+from sequentialstoragebynumtest import SequentialStorageByNumTest
 from sequentialstoragetest import SequentialStorageTest
 from multisequentialstoragetest import MultiSequentialStorageTest
 from sequentialstoragecomponenttest import SequentialStorageComponentTest
