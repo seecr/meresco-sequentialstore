@@ -108,7 +108,7 @@ class _Index(object):
     def __getitem__(self, key):
         value = self._latestModifications.get(key)
         if value == DELETED_RECORD:
-            raise KeyError("Record deleted")
+            raise KeyError(key)
         elif value is not None:
             return value
         self._maybeReopen()
