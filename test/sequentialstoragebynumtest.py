@@ -24,7 +24,7 @@
 ## end license ##
 
 from os import fstat, SEEK_CUR
-from os.path import join, dirname
+from os.path import join, dirname, abspath
 from random import random, randint
 from time import time
 from itertools import islice
@@ -105,7 +105,7 @@ class SequentialStorageByNumTest(SeecrTestCase):
         s.add(2, randomString(8 * DEFAULT_BLOCK_SIZE))  # compressed multiple times BLOCKSIZE
         s.flush()
         s = _SequentialStorageByNum(self.tempfile)
-        self.assertEquals(2, s._lastKey)
+        self.assertEquals(2, s.lastKey)
 
     def testGetMultiple(self):
         s = _SequentialStorageByNum(self.tempfile)
@@ -466,16 +466,7 @@ class SequentialStorageByNumTest(SeecrTestCase):
         s.add(1, "record 1")
         self.assertEquals([(1, 'record 1')], s.items())
         self.assertTrue(s.fileData.startswith("corrupt" + SENTINEL + '\n1\n'), s.fileData)
-        self.assertEquals(1, s._lastKey)
-
-    def testLongerRubbishAtStartOfFileIgnored(self):
-        corruptData = randomString(2 * DEFAULT_BLOCK_SIZE) # > BLOCKSIZE
-        s = ReopeningSeqStorage(self).write(corruptData)
-        self.assertEquals([], s.items())
-        s.add(1, "record 1")
-        self.assertEquals([(1, 'record 1')], s.items())
-        self.assertTrue(s.fileData.startswith(corruptData + SENTINEL + '\n1\n'), s.fileData)
-        self.assertEquals(1, s._lastKey)
+        self.assertEquals(1, s.lastKey)
 
     def testCorruptionFromKeyLineIgnored(self):
         s = ReopeningSeqStorage(self).write('%s\ncorrupt' % SENTINEL)
@@ -483,7 +474,7 @@ class SequentialStorageByNumTest(SeecrTestCase):
         s.add(1, "record 1")
         self.assertEquals([(1, 'record 1')], s.items())
         self.assertTrue(s.fileData.startswith(SENTINEL + "\ncorrupt" + SENTINEL + '\n1\n'), s.fileData)
-        self.assertEquals(1, s._lastKey)
+        self.assertEquals(1, s.lastKey)
 
     def testCorruptionFromLengthLineIgnored(self):
         s = ReopeningSeqStorage(self).write('%s\n1\ncorrupt' % SENTINEL)
@@ -491,7 +482,7 @@ class SequentialStorageByNumTest(SeecrTestCase):
         s.add(1, "record 1")
         self.assertEquals([(1, 'record 1')], s.items())
         self.assertTrue(s.fileData.startswith(SENTINEL + "\n1\ncorrupt" + SENTINEL + '\n1\n'), s.fileData)
-        self.assertEquals(1, s._lastKey)
+        self.assertEquals(1, s.lastKey)
 
     def testCorruptionFromDataIgnored(self):
         s = ReopeningSeqStorage(self).write('%s\n1\n100\ncorrupt' % SENTINEL)
@@ -499,7 +490,7 @@ class SequentialStorageByNumTest(SeecrTestCase):
         s.add(1, "record 1")
         self.assertEquals([(1, 'record 1')], s.items())
         self.assertTrue(s.fileData.startswith(SENTINEL + "\n1\n100\ncorrupt" + SENTINEL + '\n1\n'), s.fileData)
-        self.assertEquals(1, s._lastKey)
+        self.assertEquals(1, s.lastKey)
 
     def testRubbishInBetween(self):
         s = ReopeningSeqStorage(self)
@@ -507,7 +498,7 @@ class SequentialStorageByNumTest(SeecrTestCase):
         s.write("rubbish")
         s.add(2, "record 2")
         self.assertEquals([(1, 'record 1'), (2, 'record 2')], s.items())
-        self.assertEquals(2, s._lastKey)
+        self.assertEquals(2, s.lastKey)
 
     def testCorruptionInBetween(self):
         s = ReopeningSeqStorage(self)
@@ -521,13 +512,13 @@ class SequentialStorageByNumTest(SeecrTestCase):
 
         for i in xrange(len(corruptRecordTemplate) - 2):
             _writeRecordAndPartOfRecord(i)
-            self.assertEquals(1, s._lastKey, "[%s] %s" % (i, s._lastKey))
+            self.assertEquals(1, s.lastKey, "[%s] %s" % (i, s.lastKey))
             s.add(2, "record 2")
             self.assertEquals([1, 2], s.keys())
 
         for i in xrange(len(corruptRecordTemplate) - 2, len(corruptRecordTemplate)):
             _writeRecordAndPartOfRecord(i)
-            self.assertEquals(5, s._lastKey, "[%s] %s" % (i, s._lastKey))
+            self.assertEquals(5, s.lastKey, "[%s] %s" % (i, s.lastKey))
             self.assertEquals([1, 5], s.keys())
 
     def testLastKeyFoundInCaseOfBlockSizedGapBeforeCorruptRecord(self):
@@ -535,7 +526,13 @@ class SequentialStorageByNumTest(SeecrTestCase):
         s.add(1, "record")
         s.write(randomString(4 * DEFAULT_BLOCK_SIZE))
         s.write(SENTINEL + '\n2\n42\n')  # sentinal + key and length, but no data
-        self.assertEquals(1, s._lastKey)
+        # self.assertEquals(1, s.lastKey)  # preferred functionality, but too costly to get right
+        try:
+            lastKey = s.lastKey
+        except AssertionError, e:
+            self.assertEquals('SequentialStorage in %s internally inconsistent.' % abspath(self.tempfile), str(e))
+        else:
+            self.fail('unexpectedly found lastKey: %s' % lastKey)
 
     def testTargetKeySkipsRubbish(self):
         s = _SequentialStorageByNum(self.tempfile)
@@ -568,6 +565,13 @@ class SequentialStorageByNumTest(SeecrTestCase):
         s._f.seek(0) #TODO what if this seek is not there? What should the file position be?
         self.assertEquals("six", s._readNext(target_key=6)[1])
 
+    def testClose(self):
+        s = _SequentialStorageByNum(self.tempfile)
+        s.add(1, "one")
+        s.close()
+        self.assertEquals('----\n1\n11\nx\x9c\xcb\xcfK\x05\x00\x02\x91\x01C\n', open(join(self.tempfile)).read())
+        self.assertRaises(ValueError, lambda: s.add(2, 'two'))
+
 
 class ReopeningSeqStorage(object):
     def __init__(self, testCase):
@@ -595,13 +599,15 @@ class ReopeningSeqStorage(object):
     def fileData(self):
         return open(self.tempfile).read()
 
+    @property
+    def lastKey(self):
+        s = self.seqStorage()
+        return s.lastKey
+
     def seqStorage(self):
         return _SequentialStorageByNum(self.tempfile)
 
-    @property
-    def _lastKey(self):
-        s = self.seqStorage()
-        return s._lastKey
+
 
 
 def randomString(n):

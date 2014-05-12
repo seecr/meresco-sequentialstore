@@ -2,50 +2,49 @@ from os.path import join, isdir
 from os import listdir, makedirs
 from escaping import escapeFilename
 
-from _sequentialstoragebynum import _SequentialStorageByNum
+from sequentialstorage import SequentialStorage
 
 
 class MultiSequentialStorage(object):
-    def __init__(self, path, name=None):
-        self._path = path
+    def __init__(self, directory, name=None):
+        self._directory = directory
         self._name = name
-        isdir(self._path) or makedirs(self._path)
+        isdir(self._directory) or makedirs(self._directory)
         self._storage = {}
-        for name in listdir(path):
+        for name in listdir(directory):
             self._getStorage(name)
 
     def observable_name(self):
         return self._name
 
+    def addData(self, identifier, name, data):
+        self._getStorage(name).add(identifier, data)
+
+    def deleteData(self, identifier, name=None):
+        if name is None:
+            for storage in self._storage.values():
+                storage.delete(identifier)
+        else:
+            self._getStorage(name).delete(identifier)
+
+    def getData(self, identifier, name):
+        return self._getStorage(name)[identifier]
+
+    def getMultipleData(self, name, identifiers, ignoreMissing=False):
+        return self._getStorage(name).getMultiple(identifiers, ignoreMissing=ignoreMissing)
+
+    def handleShutdown(self):
+        print 'handle shutdown: saving MultiSequentialStorage %s' % self._directory
+        from sys import stdout; stdout.flush()
+        self.close()
+
+    def close(self):
+        for storage in self._storage.itervalues():
+            storage.close()
+
     def _getStorage(self, name):
         storage = self._storage.get(name)
         if not storage:
             name = escapeFilename(name)
-            self._storage[name] = storage = _SequentialStorageByNum(join(self._path, name))
+            self._storage[name] = storage = SequentialStorage(join(self._directory, name))
         return storage
-
-    def add(self, identifier, partname, data):
-        self.addData(key=identifier, name=partname, data=data)
-        return
-        yield
-
-    def addData(self, key, name, data):
-        self._getStorage(name).add(key, data)
-
-    def getData(self, key, name):
-        return self._getStorage(name)[key]
-
-    def iterData(self, name, start, stop=None, **kwargs):
-        return self._getStorage(name).range(start, stop=stop, **kwargs)
-
-    def getMultipleData(self, name, keys, ignoreMissing=False):
-        return self._getStorage(name).getMultiple(keys, ignoreMissing=ignoreMissing)
-
-    def handleShutdown(self):
-        print 'handle shutdown: saving SequentialMultiStorage %s' % self._path
-        from sys import stdout; stdout.flush()
-        self.flush()
-
-    def flush(self):
-        for storage in self._storage.itervalues():
-            storage.flush()

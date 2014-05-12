@@ -43,7 +43,7 @@ simplefilter('default')
 from sequentialstoragebynumtest import SequentialStorageByNumTest
 from sequentialstoragetest import SequentialStorageTest
 from multisequentialstoragetest import MultiSequentialStorageTest
-from sequentialstoragecomponenttest import SequentialStorageComponentTest
+from storagecomponentadaptertest import StorageComponentAdapterTest
 
 
 if __name__ == '__main__':

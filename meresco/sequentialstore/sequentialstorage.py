@@ -1,6 +1,6 @@
-from os import getenv, makedirs
+from os import getenv, makedirs, listdir
 from warnings import warn
-from os.path import join, isdir
+from os.path import join, isdir, isfile
 
 from _sequentialstoragebynum import _SequentialStorageByNum
 
@@ -28,29 +28,27 @@ def lazyImport():
 
 
 class SequentialStorage(object):
+    version = '1'
+
     def __init__(self, directory):
+        self._directory = directory
+        self._versionFormatCheck()
         self._index = _Index(join(directory, "index"))
         self._seqStorageByNum = _SequentialStorageByNum(join(directory, 'seqstore'))
-        self._last_stamp = self._seqStorageByNum._lastKey or 0  # TODO: find real last stamp
-
+        self._lastKey = self._seqStorageByNum.lastKey or 0
 
     def add(self, identifier, data):
-        self._last_stamp += 1
-        stamp = self._last_stamp
-        self._seqStorageByNum.add(key=stamp, data=data)
-        self._index[str(identifier)] = stamp  # only after actually writing data
+        self._lastKey += 1
+        key = self._lastKey
+        self._seqStorageByNum.add(key=key, data=data)
+        self._index[str(identifier)] = key  # only after actually writing data
 
     def delete(self, identifier):
-        pass
+        del self._index[str(identifier)]
 
     def __getitem__(self, identifier):
-        stamp = self._index[str(identifier)]
-        return self._seqStorageByNum[stamp]
-
-    def getMultiple(self, identifiers, ignoreMissing=False):
-        stamps2Identifiers = dict((self._index[str(identifier)], identifier) for identifier in identifiers)
-        result = self._seqStorageByNum.getMultiple(keys=sorted(stamps2Identifiers.keys()), ignoreMissing=ignoreMissing)
-        return ((stamps2Identifiers.get(stamp), data) for stamp, data in result)
+        key = self._index[str(identifier)]
+        return self._seqStorageByNum[key]
 
     def get(self, identifier, default=None):
         try:
@@ -58,12 +56,35 @@ class SequentialStorage(object):
         except KeyError:
             return default
 
-    def flush(self):
-        self._seqStorageByNum.flush()
+    def getMultiple(self, identifiers, ignoreMissing=False):
+        keys2Identifiers = dict()
+        for identifier in identifiers:
+            identifier = str(identifier)
+            try:
+                key = self._index[identifier]
+            except KeyError:
+                if not ignoreMissing:
+                    raise
+            else:
+                keys2Identifiers[key] = identifier
+        result = self._seqStorageByNum.getMultiple(keys=sorted(keys2Identifiers.keys()), ignoreMissing=ignoreMissing)
+        return ((keys2Identifiers.get(key), data) for key, data in result)
 
     def close(self):
-        self.flush()
+        self._seqStorageByNum.close()
+        self._seqStorageByNum = None
         self._index.close()
+        self._index = None
+
+    def _versionFormatCheck(self):
+        versionFile = join(self._directory, "sequentialstorage.version")
+        if isdir(self._directory):
+            assert (listdir(self._directory) == []) or (isfile(versionFile) and open(versionFile).read() == self.version), "The SequentialStorage at %s needs to be converted to the current version." % self._directory
+        else:
+            assert not isfile(self._directory), 'Given directory name %s exists as file.' % self._directory
+            makedirs(self._directory)
+        with open(versionFile, 'w') as f:
+            f.write(self.version)
 
 
 class _Index(object):
@@ -85,16 +106,22 @@ class _Index(object):
         self._latestModifications[key] = value
 
     def __getitem__(self, key):
-        stamp = self._latestModifications.get(key)
-        if stamp == DELETED_RECORD:
+        value = self._latestModifications.get(key)
+        if value == DELETED_RECORD:
             raise KeyError("Record deleted")
-        elif stamp is not None:
-            return stamp
+        elif value is not None:
+            return value
         self._maybeReopen()
         topDocs = self._searcher.search(TermQuery(Term("key", key)), 1)
         if topDocs.totalHits == 0:
-            raise KeyError("Record deleted")
+            raise KeyError(key)
         return self._searcher.doc(topDocs.scoreDocs[0].doc).getField("value").numericValue().longValue()
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
 
     def __delitem__(self, key):
         self._writer.deleteDocuments(Term("key", key))

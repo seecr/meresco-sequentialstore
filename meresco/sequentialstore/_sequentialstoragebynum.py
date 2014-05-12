@@ -23,7 +23,7 @@
 #
 ## end license ##
 
-from os.path import getsize
+from os.path import getsize, abspath
 from zlib import compress, decompress, error as ZlibError
 from math import ceil
 import operator
@@ -35,18 +35,20 @@ class _SequentialStorageByNum(object):
         self._f = file_ or open(fileName, "ab+")
         blockSize = blockSize or DEFAULT_BLOCK_SIZE
         self._blkIndex = _BlkIndex(self, blockSize)
-        self._lastKey = None
+        self.lastKey = None
         lastBlk = self._blkIndex.search(LARGER_THAN_ANY_KEY)
         try:
-            self._lastKey = self._blkIndex.scan(lastBlk, last=True)  # BUG! Getting None when we don't expect/want it.
+            self.lastKey = self._blkIndex.scan(lastBlk, last=True)
         except StopIteration:
             pass
+        if self.lastKey is None:
+            assert lastBlk == 0, 'SequentialStorage in %s internally inconsistent.' % abspath(fileName)
 
     def add(self, key, data):
         _intcheck(key)
-        if key <= self._lastKey:
-            raise ValueError("key %s must be greater than last key %s" % (key, self._lastKey))
-        self._lastKey = key
+        if key <= self.lastKey:
+            raise ValueError("key %s must be greater than last key %s" % (key, self.lastKey))
+        self.lastKey = key
         data = compress(data)
         record = RECORD % dict(key=key, length=len(data), data=data, sentinel=SENTINEL)
         self._f.write(record)
@@ -60,9 +62,6 @@ class _SequentialStorageByNum(object):
         except StopIteration:
             raise IndexError
         return data
-
-    def flush(self):
-        self._f.flush()
 
     def range(self, start, stop=None, inclusive=False):
         stop = stop or LARGER_THAN_ANY_KEY
@@ -104,6 +103,12 @@ class _SequentialStorageByNum(object):
 
             prev_blk = blk
             prev_key = key
+
+    def close(self):
+        self._f.close()
+
+    def flush(self):
+        self._f.flush()
 
     def _readNext(self, target_key=None, greater=False, keyOnly=False, last=False):
         line = "sentinel not yet found"
@@ -182,6 +187,7 @@ class _BlkIndex(object):
 
     def offset(self, blk):
         return blk * self._blk_size
+
 
 def _intcheck(value):
     if not isinstance(value, (int, long)):
