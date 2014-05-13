@@ -23,30 +23,17 @@
 #
 ## end license ##
 
-
-from cStringIO import StringIO
-
-from adddeletetomultisequential import AddDeleteToMultiSequential
+from meresco.core import Observable
 
 
-class StorageComponentAdapter(AddDeleteToMultiSequential):
-    """Provided for 'backwards' compatibility to allow MultiSequentialStorage to be accessed by older components (in Meresco DNA)."""
+class AddDeleteToMultiSequential(Observable):
+    """Provided for 'backwards' compatibility to allow MultiSequentialStorage to be passed 'add' and 'delete' messages by older components (in Meresco DNA)."""
+    def add(self, identifier, partname, data):
+        self.call.addData(identifier=identifier, name=partname, data=data)
+        return
+        yield
 
-    def deletePart(self, identifier, partname):
-        self.call.deleteData(identifier=identifier, name=partname)
-
-    def isAvailable(self, identifier, partname):
-        try:
-            self.call.getData(identifier=identifier, name=partname)
-            return True, True
-        except KeyError:
-            return False, False
-
-    def getStream(self, identifier, partname):
-        return StringIO(self.call.getData(identifier=identifier, name=partname))
-
-    def yieldRecord(self, identifier, partname):
-        try:
-            yield self.call.getData(identifier=identifier, name=partname)
-        except KeyError:
-            pass
+    def delete(self, identifier):
+        self.call.deleteData(identifier=identifier)
+        return
+        yield

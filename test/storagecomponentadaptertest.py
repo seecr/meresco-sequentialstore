@@ -31,7 +31,6 @@ from meresco.core import Observable
 from meresco.sequentialstore import StorageComponentAdapter, MultiSequentialStorage
 
 
-
 class StorageComponentAdapterTest(SeecrTestCase):
     def setUp(self):
         SeecrTestCase.setUp(self)
@@ -68,3 +67,4 @@ class StorageComponentAdapterTest(SeecrTestCase):
     def testYieldRecord(self):
         consume(self.top.all.add(identifier="x", partname="part1", data="<data/>"))
         self.assertEquals("<data/>", asString(self.top.all.yieldRecord(identifier="x", partname="part1")))
+        self.assertEquals("", asString(self.top.all.yieldRecord(identifier="y", partname="part1")))

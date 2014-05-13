@@ -24,6 +24,7 @@
 ## end license ##
 
 from __version__ import VERSION
-from sequentialstorage import SequentialStorage
+from adddeletetomultisequential import AddDeleteToMultiSequential
 from multisequentialstorage import MultiSequentialStorage
+from sequentialstorage import SequentialStorage
 from storagecomponentadapter import StorageComponentAdapter
