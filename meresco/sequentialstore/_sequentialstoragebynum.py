@@ -63,7 +63,7 @@ class _SequentialStorageByNum(object):
             raise IndexError
         return data
 
-    def range(self, start, stop=None, inclusive=False):
+    def range(self, start=0, stop=None, inclusive=False):
         stop = stop or LARGER_THAN_ANY_KEY
         _intcheck(start); _intcheck(stop)
         cmp = operator.le if inclusive else operator.lt

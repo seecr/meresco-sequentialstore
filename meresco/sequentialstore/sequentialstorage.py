@@ -1,4 +1,4 @@
-from os import getenv, makedirs, listdir
+from os import getenv, makedirs, listdir, rename
 from warnings import warn
 from os.path import join, isdir, isfile
 
@@ -12,12 +12,18 @@ def lazyImport():
     imported = True
     importVM()
     from java.io import File
-    from org.apache.lucene.document import Document, StringField, Field, LongField, FieldType
-    from org.apache.lucene.search import IndexSearcher, TermQuery
+    from org.apache.lucene.document import Document, StringField, Field, LongField, FieldType, NumericDocValuesField
+    from org.apache.lucene.search import IndexSearcher, TermQuery, MatchAllDocsQuery
     from org.apache.lucene.index import DirectoryReader, Term, IndexWriter, IndexWriterConfig
+    from org.apache.lucene.index.sorter import SortingMergePolicy, NumericDocValuesSorter
     from org.apache.lucene.store import FSDirectory
     from org.apache.lucene.util import Version
     from org.apache.lucene.analysis.core import WhitespaceAnalyzer
+
+    from meresco_sequentialstore import initVM as initMerescoSequentialStore
+    initMerescoSequentialStore()
+
+    from org.meresco.sequentialstore import SeqStoreSortingCollector
 
     StampType = FieldType()
     StampType.setIndexed(False)
@@ -70,6 +76,20 @@ class SequentialStorage(object):
         result = self._seqStorageByNum.getMultiple(keys=sorted(keys2Identifiers.keys()), ignoreMissing=ignoreMissing)
         return ((keys2Identifiers.get(key), data) for key, data in result)
 
+    @classmethod
+    def gc(cls, directory):
+        """Works only for closed SequentialStorage for now."""
+        s = cls(directory)  # TODO: desirable to create new if not existing yet?
+        tmpSeqStoreFile = join(directory, 'seqstore~')
+        tmpSequentialStorageByNum = _SequentialStorageByNum(tmpSeqStoreFile)
+
+        for (key, data) in s._iterInternalKeyData():
+            tmpSequentialStorageByNum.add(key, data)
+        s.close()
+        tmpSequentialStorageByNum.close()
+
+        rename(tmpSeqStoreFile, join(directory, 'seqstore'))
+
     def close(self):
         self._seqStorageByNum.close()
         self._seqStorageByNum = None
@@ -86,23 +106,28 @@ class SequentialStorage(object):
         with open(versionFile, 'w') as f:
             f.write(self.version)
 
+    def _iterInternalKeyData(self):
+        existingNumKeys = self._index.itervalues()
+        return self._seqStorageByNum.getMultiple(keys=existingNumKeys)
+
 
 class _Index(object):
     def __init__(self, path):
         lazyImport()
         self._writer, self._reader, self._searcher = _getLucene(path)
         self._latestModifications = {}
-        self._doc = Document()
         self._keyField = StringField("key", "", Field.Store.NO)
         self._valueField = LongField("value", 0L, StampType)
-        self._doc.add(self._keyField)
-        self._doc.add(self._valueField)
 
     def __setitem__(self, key, value):
         self._maybeReopen()
+        doc = Document()
         self._keyField.setStringValue(key)
+        doc.add(self._keyField)
         self._valueField.setLongValue(long(value))
-        self._writer.updateDocument(Term("key", key), self._doc)
+        doc.add(self._valueField)
+        doc.add(NumericDocValuesField("value", long(value)))
+        self._writer.updateDocument(Term("key", key), doc)
         self._latestModifications[key] = value
 
     def __getitem__(self, key):
@@ -123,13 +148,27 @@ class _Index(object):
         except KeyError:
             return default
 
+    def itervalues(self):
+        self._reopen()
+        collector = SeqStoreSortingCollector(self._reader)
+        self._searcher.search(MatchAllDocsQuery(), None, collector)
+        docs = collector.docs(self._searcher)
+        for doc in docs:
+            yield doc.getField('value').numericValue().longValue()
+
     def __delitem__(self, key):
         self._writer.deleteDocuments(Term("key", key))
         self._latestModifications[key] = DELETED_RECORD
 
     def _maybeReopen(self):
         if len(self._latestModifications) > 10000:
-            self._reader = DirectoryReader.openIfChanged(self._reader, self._writer, True)
+            self._reopen()
+
+    def _reopen(self):
+        newReader = DirectoryReader.openIfChanged(self._reader, self._writer, True)
+        if newReader:
+            self._reader.close()
+            self._reader = newReader
             self._searcher = IndexSearcher(self._reader)
             self._latestModifications.clear()
 
@@ -155,7 +194,10 @@ def _getLucene(path):
     directory = FSDirectory.open(File(path))
     config = IndexWriterConfig(Version.LUCENE_43, None)
     config.setRAMBufferSizeMB(256.0) # faster
-    #confif.setUseCompoundFile(false) # faster, for Lucene 4.4 and later
+    #config.setUseCompoundFile(false) # faster, for Lucene 4.4 and later
+    mergePolicy = config.getMergePolicy()
+    sortingMergePolicy = SortingMergePolicy(mergePolicy, NumericDocValuesSorter("stamp", True))
+    config.setMergePolicy(sortingMergePolicy)
     writer = IndexWriter(directory, config)
     reader = writer.getReader()
     searcher = IndexSearcher(reader)

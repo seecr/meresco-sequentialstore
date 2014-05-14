@@ -1,8 +1,10 @@
 from os.path import join, isfile
+from random import shuffle
 
 from seecr.test import SeecrTestCase
 
 from meresco.sequentialstore import SequentialStorage
+from meresco.sequentialstore.sequentialstorage import _Index
 
 
 class SequentialStorageTest(SeecrTestCase):
@@ -130,3 +132,51 @@ class SequentialStorageTest(SeecrTestCase):
             self.fail()
         except AssertionError, e:
             self.assertEquals('Given directory name %s exists as file.' % filePath, str(e))
+
+    def testShouldNotAllowOpeningTwice(self):
+        SequentialStorage(self.tempdir)
+        try:
+            SequentialStorage(self.tempdir)
+            self.fail()
+        except Exception, e:
+            self.assertTrue(repr(e).startswith('JavaError(<Throwable: org.apache.lucene.store.LockObtainFailedException: Lock obtain timed out: NativeFSLock'), e)
+
+
+    def testIndexIterValues(self):
+        index = _Index(self.tempdir)
+        index['id0'] = 1
+        index['id1'] = 8
+        values = list(index.itervalues())
+        self.assertEquals([1, 8], values)
+
+    def testIndexItervaluesAfterUpdate(self):
+        index = _Index(self.tempdir)
+        index['id0'] = 1
+        self.assertEquals([1], list(index.itervalues()))
+        index['id0'] = 2
+        self.assertEquals([2], list(index.itervalues()))
+
+    def testIndexItervaluesSorting(self):
+        index = _Index(self.tempdir)
+        index['id0'] = 3
+        index['id1'] = 2
+        index['id2'] = 1
+        self.assertEquals([1, 2, 3], list(index.itervalues()))
+        index['id0'] = 4
+        self.assertEquals([1, 2, 4], list(index.itervalues()))
+
+    def testIndexIterMoreThanAFewValues(self):
+        index = _Index(self.tempdir)
+        for i in xrange(15):
+            index['id%s' % i] = i * 7
+        values = list(index.itervalues())
+        self.assertEquals(15, len(values))
+
+    def testIndexIterManyValuesAfterMerge(self):
+        bakje = range(3000)
+        shuffle(bakje)
+        index = _Index(self.tempdir)
+        for i in xrange(2000):
+            index['id%s' % i] = bakje[i]
+        result = list(index.itervalues())
+        self.assertEquals(sorted(result), result)

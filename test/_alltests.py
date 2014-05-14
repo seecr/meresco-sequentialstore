@@ -41,6 +41,7 @@ from warnings import simplefilter
 simplefilter('default')
 
 from adddeletetomultisequentialtest import AddDeleteToMultiSequentialTest
+from garbagecollecttest import GarbageCollectTest
 from sequentialstoragebynumtest import SequentialStorageByNumTest
 from sequentialstoragetest import SequentialStorageTest
 from multisequentialstoragetest import MultiSequentialStorageTest
