@@ -1,6 +1,7 @@
 from os import getenv, makedirs, listdir, rename
 from warnings import warn
 from os.path import join, isdir, isfile
+from itertools import islice
 
 from _sequentialstoragebynum import _SequentialStorageByNum
 
@@ -11,9 +12,10 @@ def lazyImport():
         return
     imported = True
     importVM()
+    from java.lang import Long
     from java.io import File
     from org.apache.lucene.document import Document, StringField, Field, LongField, FieldType, NumericDocValuesField
-    from org.apache.lucene.search import IndexSearcher, TermQuery, MatchAllDocsQuery
+    from org.apache.lucene.search import IndexSearcher, TermQuery, BooleanQuery, BooleanClause, MatchAllDocsQuery, NumericRangeQuery
     from org.apache.lucene.index import DirectoryReader, Term, IndexWriter, IndexWriterConfig
     from org.apache.lucene.index.sorter import SortingMergePolicy, NumericDocValuesSorter
     from org.apache.lucene.store import FSDirectory
@@ -26,7 +28,7 @@ def lazyImport():
     from org.meresco.sequentialstore import SeqStoreSortingCollector
 
     StampType = FieldType()
-    StampType.setIndexed(False)
+    StampType.setIndexed(True)
     StampType.setStored(True)
     StampType.setNumericType(FieldType.NumericType.LONG)
 
@@ -39,8 +41,8 @@ class SequentialStorage(object):
     def __init__(self, directory):
         self._directory = directory
         self._versionFormatCheck()
-        self._index = _Index(join(directory, "index"))
-        self._seqStorageByNum = _SequentialStorageByNum(join(directory, 'seqstore'))
+        self._index = _Index(join(directory, INDEX_DIR))
+        self._seqStorageByNum = _SequentialStorageByNum(join(directory, SEQSTORE_DIR))
         self._lastKey = self._seqStorageByNum.lastKey or 0
 
     def add(self, identifier, data):
@@ -79,7 +81,9 @@ class SequentialStorage(object):
     @classmethod
     def gc(cls, directory):
         """Works only for closed SequentialStorage for now."""
-        s = cls(directory)  # TODO: desirable to create new if not existing yet?
+        if not isdir(join(directory, INDEX_DIR)) or not isfile(join(directory, SEQSTORE_DIR)):
+            raise ValueError('Directory %s does not belong to a %s.' % (directory, cls))
+        s = cls(directory)
         tmpSeqStoreFile = join(directory, 'seqstore~')
         tmpSequentialStorageByNum = _SequentialStorageByNum(tmpSeqStoreFile)
 
@@ -108,7 +112,12 @@ class SequentialStorage(object):
 
     def _iterInternalKeyData(self):
         existingNumKeys = self._index.itervalues()
-        return self._seqStorageByNum.getMultiple(keys=existingNumKeys)
+        while True:
+            numKeys = list(islice(existingNumKeys, 0, 100))
+            if not numKeys:
+                break
+            for (key, data) in self._seqStorageByNum.getMultiple(keys=numKeys):
+                yield key, data
 
 
 class _Index(object):
@@ -150,11 +159,20 @@ class _Index(object):
 
     def itervalues(self):
         self._reopen()
-        collector = SeqStoreSortingCollector(self._reader)
-        self._searcher.search(MatchAllDocsQuery(), None, collector)
-        docs = collector.docs(self._searcher)
-        for doc in docs:
-            yield doc.getField('value').numericValue().longValue()
+        lastSeenKey = -1
+        while not lastSeenKey is None:
+            lastSeenKey += 1
+            query = NumericRangeQuery.newLongRange("value", lastSeenKey, Long.MAX_VALUE, True, False)
+            collector = SeqStoreSortingCollector(500)
+            self._searcher.search(query, None, collector)
+            docs = collector.docs(self._searcher)
+            if len(docs) == 0:
+                lastSeenKey = None
+                break
+            for doc in docs:
+                lastSeenKey = doc.getField('value').numericValue().longValue()
+                yield lastSeenKey
+
 
     def __delitem__(self, key):
         self._writer.deleteDocuments(Term("key", key))
@@ -196,7 +214,7 @@ def _getLucene(path):
     config.setRAMBufferSizeMB(256.0) # faster
     #config.setUseCompoundFile(false) # faster, for Lucene 4.4 and later
     mergePolicy = config.getMergePolicy()
-    sortingMergePolicy = SortingMergePolicy(mergePolicy, NumericDocValuesSorter("stamp", True))
+    sortingMergePolicy = SortingMergePolicy(mergePolicy, NumericDocValuesSorter("value", True))
     config.setMergePolicy(sortingMergePolicy)
     writer = IndexWriter(directory, config)
     reader = writer.getReader()
@@ -204,3 +222,5 @@ def _getLucene(path):
     return writer, reader, searcher
 
 DELETED_RECORD = object()
+INDEX_DIR = 'index'
+SEQSTORE_DIR = 'seqstore'

@@ -49,14 +49,23 @@ import java.util.HashSet;
 
 public class SeqStoreSortingCollector extends Collector {
     private int hitCount = 0;
+    private boolean shouldCountHits;
+    private int maxDocsToCollect;
     private int docBase;
     private boolean delegateTerminated = false;
+    public boolean moreRecordsAvailable = false;
     private EarlyTerminatingSortingCollector earlyCollector;
     private TopFieldCollector topDocsCollector;
 
-    public SeqStoreSortingCollector(IndexReader reader) throws IOException {
-        this.topDocsCollector = TopFieldCollector.create(new Sort(new SortField("value", SortField.Type.LONG)), reader.numDocs(), false, false, false, false);
-        //this.earlyCollector = new EarlyTerminatingSortingCollector(this.topDocsCollector, new NumericDocValuesSorter("value", true), reader.numDocs());
+    public SeqStoreSortingCollector(int maxDocsToCollect) throws IOException {
+        this(maxDocsToCollect, false);
+    }
+
+    public SeqStoreSortingCollector(int maxDocsToCollect, boolean shouldCountHits) throws IOException {
+        this.maxDocsToCollect = maxDocsToCollect;
+        this.shouldCountHits = shouldCountHits;
+        this.topDocsCollector = TopFieldCollector.create(new Sort(new SortField("value", SortField.Type.LONG)), maxDocsToCollect, false, false, false, false);
+        this.earlyCollector = new EarlyTerminatingSortingCollector(this.topDocsCollector, new NumericDocValuesSorter("value", true), maxDocsToCollect);
     }
 
     public Document[] docs(IndexSearcher searcher) throws IOException {
@@ -71,31 +80,52 @@ public class SeqStoreSortingCollector extends Collector {
         return docs;
     }
 
+    public int remainingRecords() {
+        if (this.shouldCountHits) {
+            return Math.max(0, this.hitCount - this.maxDocsToCollect);
+        }
+        return -1;
+    }
+
     public int totalHits() {
         return this.hitCount;
     }
 
     @Override
     public void collect(int doc) throws IOException {
-        //System.out.println("collect " + (this.docBase + doc));
+        // System.out.println("collect " + (this.docBase + doc));
         this.hitCount++;
-        this.topDocsCollector.collect(doc);
+        if (this.hitCount > this.maxDocsToCollect) {
+            this.moreRecordsAvailable = true;
+        }
+        if (delegateTerminated) {
+            return;
+        }
+        try {
+            this.earlyCollector.collect(doc);
+        }
+        catch (CollectionTerminatedException e) {
+            delegateTerminated = true;
+            if (!this.shouldCountHits) {
+                throw e;
+            }
+        }
     }
 
     @Override
     public void setScorer(Scorer scorer) throws IOException {
-        this.topDocsCollector.setScorer(scorer);
+        this.earlyCollector.setScorer(scorer);
     }
 
     @Override
     public void setNextReader(AtomicReaderContext context) throws IOException {
         this.delegateTerminated = false;
-        this.topDocsCollector.setNextReader(context);
+        this.earlyCollector.setNextReader(context);
         this.docBase = context.docBase;
     }
 
     @Override
     public boolean acceptsDocsOutOfOrder() {
-        return false;
+        return this.earlyCollector.acceptsDocsOutOfOrder();
     }
 }
