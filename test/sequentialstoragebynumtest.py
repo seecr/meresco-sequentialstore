@@ -572,6 +572,18 @@ class SequentialStorageByNumTest(SeecrTestCase):
         self.assertEquals('----\n1\n11\nx\x9c\xcb\xcfK\x05\x00\x02\x91\x01C\n', open(join(self.tempfile)).read())
         self.assertRaises(ValueError, lambda: s.add(2, 'two'))
 
+    def testCopyTo(self):
+        s = _SequentialStorageByNum(join(self.tempdir, 'original'))
+        s.add(1, "one")
+        s.add(2, "two")
+        s.add(3, "three")
+        s2 = _SequentialStorageByNum(join(self.tempdir, 'target'))
+        s.copyTo(s2, [1, 3])
+        self.assertEquals([(1, 'one'), (3, 'three')], list(s2.range(0)))
+        s.add(4, 'four')
+        s.copyTo(s2, [4])
+        self.assertEquals([(1, 'one'), (3, 'three'), (4, 'four')], list(s2.range(0)))
+
 
 class ReopeningSeqStorage(object):
     def __init__(self, testCase):

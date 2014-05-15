@@ -86,12 +86,14 @@ class SequentialStorage(object):
         s = cls(directory)
         tmpSeqStoreFile = join(directory, 'seqstore~')
         tmpSequentialStorageByNum = _SequentialStorageByNum(tmpSeqStoreFile)
-
-        for (key, data) in s._iterInternalKeyData():
-            tmpSequentialStorageByNum.add(key, data)
+        existingNumKeys = s._index.itervalues()
+        while True:
+            numKeys = list(islice(existingNumKeys, 0, 100))
+            if not numKeys:
+                break
+            s._seqStorageByNum.copyTo(tmpSequentialStorageByNum, numKeys)
         s.close()
         tmpSequentialStorageByNum.close()
-
         rename(tmpSeqStoreFile, join(directory, 'seqstore'))
 
     def close(self):
@@ -109,15 +111,6 @@ class SequentialStorage(object):
             makedirs(self._directory)
         with open(versionFile, 'w') as f:
             f.write(self.version)
-
-    def _iterInternalKeyData(self):
-        existingNumKeys = self._index.itervalues()
-        while True:
-            numKeys = list(islice(existingNumKeys, 0, 100))
-            if not numKeys:
-                break
-            for (key, data) in self._seqStorageByNum.getMultiple(keys=numKeys):
-                yield key, data
 
 
 class _Index(object):

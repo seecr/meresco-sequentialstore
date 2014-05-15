@@ -40,20 +40,21 @@ class GarbageCollectTest(SeecrTestCase):
     def testLargerSequentialStorage(self):
         directory = join(self.tempdir, 'store')
         s = SequentialStorage(directory)
-        for i in xrange(1000):
-            if i % 100 == 0:
-                print i
-                from sys import stdout; stdout.flush()
+        for i in xrange(100):
+            # if i % 10 == 0:
+            #     print i
+            #     from sys import stdout; stdout.flush()
             s.add('id:%s' % i, 'data%s' % i)
             v = list(s._index.itervalues())
             self.assertEquals(i + 1, len(v))
             self.assertEquals(sorted(v), v)
-        self.assertEquals('data999', s['id:999'])
+        self.assertEquals('data99', s['id:99'])
         s.close()
         GarbageCollect(directory).collect()
         s = SequentialStorage(directory)
-        self.assertEquals('data999', s['id:999'])
+        self.assertEquals('data99', s['id:99'])
 
+    #def testRatherLargeSequentialStorage(self):
     def TAKES_ABOUT_15_MINUTES_testRatherLargeSequentialStorage(self):
         print 'Needs 210MB'
         from sys import stdout; stdout.flush()

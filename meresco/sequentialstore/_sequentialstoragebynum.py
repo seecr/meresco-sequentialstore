@@ -44,12 +44,13 @@ class _SequentialStorageByNum(object):
         if self.lastKey is None:
             assert lastBlk == 0, 'SequentialStorage in %s internally inconsistent.' % abspath(fileName)
 
-    def add(self, key, data):
+    def add(self, key, data, alreadyCompressed=False):
         _intcheck(key)
         if key <= self.lastKey:
             raise ValueError("key %s must be greater than last key %s" % (key, self.lastKey))
         self.lastKey = key
-        data = compress(data)
+        if not alreadyCompressed:
+            data = compress(data)
         record = RECORD % dict(key=key, length=len(data), data=data, sentinel=SENTINEL)
         self._f.write(record)
         self._blkIndex.adjustSize(len(record))
@@ -76,7 +77,7 @@ class _SequentialStorageByNum(object):
             key, data = self._readNext()
             offset = self._f.tell()
 
-    def getMultiple(self, keys, ignoreMissing=False):
+    def getMultiple(self, keys, ignoreMissing=False, keepCompressed=False):
         offset = None
         prev_blk = None
         prev_key = None
@@ -88,11 +89,11 @@ class _SequentialStorageByNum(object):
             blk = self._blkIndex.search(key, lo=prev_blk or 0)
             try:
                 if self._blkIndex.offset(blk) > offset:
-                    key, data = self._blkIndex.scan(blk, target_key=key)
+                    key, data = self._blkIndex.scan(blk, target_key=key, keepCompressed=keepCompressed)
                 else:
                     if offset:
                         self._f.seek(offset)
-                    key, data = self._readNext(target_key=key)
+                    key, data = self._readNext(target_key=key, keepCompressed=keepCompressed)
                 offset = self._f.tell()
             except StopIteration:
                 if ignoreMissing:
@@ -104,13 +105,17 @@ class _SequentialStorageByNum(object):
             prev_blk = blk
             prev_key = key
 
+    def copyTo(self, target, keys):
+        for key, data in self.getMultiple(keys=keys, keepCompressed=True):
+            target.add(key, data, alreadyCompressed=True)
+
     def close(self):
         self._f.close()
 
     def flush(self):
         self._f.flush()
 
-    def _readNext(self, target_key=None, greater=False, keyOnly=False, last=False):
+    def _readNext(self, target_key=None, greater=False, keyOnly=False, last=False, keepCompressed=False):
         line = "sentinel not yet found"
         key = None; data = None; lastKey = None
         while line != '':
@@ -132,11 +137,14 @@ class _SequentialStorageByNum(object):
                     elif not greater and key != target_key:
                         raise StopIteration
                 rawdata = self._f.read(length)
-                try:
-                    data = decompress(rawdata)
-                except ZlibError:
-                    self._f.seek(retryPosition)
-                    continue
+                if keepCompressed:
+                    data = rawdata
+                else:
+                    try:
+                        data = decompress(rawdata)
+                    except ZlibError:
+                        self._f.seek(retryPosition)
+                        continue
                 retryPosition = self._f.tell()
                 expectingNewline = self._f.read(1)  # newline after data
                 if expectingNewline != '\n':
