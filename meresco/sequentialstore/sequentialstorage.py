@@ -122,6 +122,7 @@ class _Index(object):
         self._valueField = LongField("value", 0L, StampType)
 
     def __setitem__(self, key, value):
+        assert value > 0  # 0 has special meaning in this context
         self._maybeReopen()
         doc = Document()
         self._keyField.setStringValue(key)
@@ -153,18 +154,18 @@ class _Index(object):
     def itervalues(self):
         self._reopen()
         lastSeenKey = -1
-        while not lastSeenKey is None:
+        while True:
             lastSeenKey += 1
             query = NumericRangeQuery.newLongRange("value", lastSeenKey, Long.MAX_VALUE, True, False)
-            collector = SeqStoreSortingCollector(500)
+            collector = SeqStoreSortingCollector(2000)
             self._searcher.search(query, None, collector)
-            docs = collector.docs(self._searcher)
-            if len(docs) == 0:
-                lastSeenKey = None
+            if collector.totalHits() == 0:
                 break
-            for doc in docs:
-                lastSeenKey = doc.getField('value').numericValue().longValue()
-                yield lastSeenKey
+            for value in collector.collectedValues():
+                if value == 0:  # Note: on the assumption that SequentialStorage is 1 based
+                    break
+                lastSeenKey = value
+                yield value
 
 
     def __delitem__(self, key):

@@ -43,6 +43,7 @@ import org.apache.lucene.document.DocumentStoredFieldVisitor;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.index.sorter.EarlyTerminatingSortingCollector;
 import org.apache.lucene.index.sorter.NumericDocValuesSorter;
+import java.util.Arrays;
 import java.util.Set;
 import java.util.HashSet;
 
@@ -54,6 +55,9 @@ public class SeqStoreSortingCollector extends Collector {
     private int docBase;
     private boolean delegateTerminated = false;
     public boolean moreRecordsAvailable = false;
+    private NumericDocValues segmentNumericDocValues;
+    private long[] collectedValues;
+    private int insertPosition = 0;
     private EarlyTerminatingSortingCollector earlyCollector;
     private TopFieldCollector topDocsCollector;
 
@@ -64,20 +68,33 @@ public class SeqStoreSortingCollector extends Collector {
     public SeqStoreSortingCollector(int maxDocsToCollect, boolean shouldCountHits) throws IOException {
         this.maxDocsToCollect = maxDocsToCollect;
         this.shouldCountHits = shouldCountHits;
+        this.collectedValues = new long[maxDocsToCollect * 2];
+
         this.topDocsCollector = TopFieldCollector.create(new Sort(new SortField("value", SortField.Type.LONG)), maxDocsToCollect, false, false, false, false);
         this.earlyCollector = new EarlyTerminatingSortingCollector(this.topDocsCollector, new NumericDocValuesSorter("value", true), maxDocsToCollect);
     }
 
-    public Document[] docs(IndexSearcher searcher) throws IOException {
-        Set<String> fieldsToVisit = new HashSet<String>(1);
-        fieldsToVisit.add("value");
-        ScoreDoc[] hits = this.topDocsCollector.topDocs().scoreDocs;
-        Document[] docs = new Document[hits.length];
-        for (int i=0; i<hits.length; i++) {
-            docs[i] = searcher.doc(hits[i].doc, fieldsToVisit);
-            // System.out.println("" + hits[i].doc + ": " + docs[i].getField("value").numericValue().longValue());
-        }
-        return docs;
+    // public Document[] docs(IndexSearcher searcher) throws IOException {
+    //     // Set<String> fieldsToVisit = new HashSet<String>(1);
+    //     // fieldsToVisit.add("value");
+    //     ScoreDoc[] hits = this.topDocsCollector.topDocs().scoreDocs;
+    //     Document[] docs = new Document[hits.length];
+    //     for (int i=0; i<hits.length; i++) {
+    //         docs[i] = searcher.doc(hits[i].doc); //, fieldsToVisit);
+    //         // System.out.println("" + hits[i].doc + ": " + docs[i].getField("value").numericValue().longValue());
+    //     }
+    //     return docs;
+    // }
+
+    public long[] collectedValues() {
+        sortAndSliceCollectedValues();
+        return this.collectedValues;  // TODO: maybe without trail of 0s
+    }
+
+    private void sortAndSliceCollectedValues() {
+        Arrays.sort(this.collectedValues, 0, this.insertPosition);
+        Arrays.fill(this.collectedValues, this.maxDocsToCollect, this.maxDocsToCollect * 2, 0);
+        this.insertPosition = Math.min(this.insertPosition, this.maxDocsToCollect);
     }
 
     public int remainingRecords() {
@@ -88,12 +105,13 @@ public class SeqStoreSortingCollector extends Collector {
     }
 
     public int totalHits() {
+        //System.out.println("totalHits" + this.hitCount);
         return this.hitCount;
     }
 
     @Override
     public void collect(int doc) throws IOException {
-        // System.out.println("collect " + (this.docBase + doc));
+        //System.out.println("collect " + (this.docBase + doc));
         this.hitCount++;
         if (this.hitCount > this.maxDocsToCollect) {
             this.moreRecordsAvailable = true;
@@ -103,8 +121,18 @@ public class SeqStoreSortingCollector extends Collector {
         }
         try {
             this.earlyCollector.collect(doc);
+            if (this.insertPosition >= this.maxDocsToCollect * 2) {
+                sortAndSliceCollectedValues();
+            }
+            long value = this.segmentNumericDocValues.get(doc);
+            if (this.insertPosition >= this.maxDocsToCollect && value >= this.collectedValues[this.insertPosition - 1]) {
+                throw new CollectionTerminatedException();
+            }
+            this.collectedValues[this.insertPosition] = value;
+            this.insertPosition++;
         }
         catch (CollectionTerminatedException e) {
+            //System.out.println("CollectionTerminatedException at " + this.hitCount);
             delegateTerminated = true;
             if (!this.shouldCountHits) {
                 throw e;
@@ -122,6 +150,7 @@ public class SeqStoreSortingCollector extends Collector {
         this.delegateTerminated = false;
         this.earlyCollector.setNextReader(context);
         this.docBase = context.docBase;
+        this.segmentNumericDocValues = context.reader().getNumericDocValues("value");
     }
 
     @Override

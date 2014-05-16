@@ -5,6 +5,7 @@ from time import time
 from meresco.sequentialstore import SequentialStorage
 from meresco.sequentialstore.garbagecollect import GarbageCollect
 
+from sequentialstoragebynumtest import randomString
 from seecr.test import SeecrTestCase
 
 
@@ -50,9 +51,36 @@ class GarbageCollectTest(SeecrTestCase):
             self.assertEquals(sorted(v), v)
         self.assertEquals('data99', s['id:99'])
         s.close()
+        t0 = time()
         GarbageCollect(directory).collect()
         s = SequentialStorage(directory)
         self.assertEquals('data99', s['id:99'])
+        self.assertTiming(0.01, time() - t0, 0.05)
+
+
+    def SKIP_testPerformance(self):
+        data = randomString(200)
+        directory = join(self.tempdir, 'store')
+        s = SequentialStorage(directory)
+        for a in range(2):
+            for i in xrange(10000):
+                # if i % 10 == 0:
+                #     print i
+                #     from sys import stdout; stdout.flush()
+                s.add('id:%s' % i, data)
+        s.close()
+        t0 = time()
+
+        gc = GarbageCollect(directory).collect
+        from hotshot import Profile
+        prof = Profile("/tmp/seqstore_gc.profile", lineevents=1, linetimings=1)
+        try:
+            prof.runcall(gc)
+        finally:
+            prof.close()
+
+        print time() - t0
+        self.assertTiming(0.2, time() - t0, 0.5)
 
     #def testRatherLargeSequentialStorage(self):
     def TAKES_ABOUT_15_MINUTES_testRatherLargeSequentialStorage(self):
@@ -71,6 +99,8 @@ class GarbageCollectTest(SeecrTestCase):
                 s.add('id:%s' % i, 'data%s' % i)
         s.close()
         print 'creating took %s' % (time() - t0)
+        raw_input(self.tempdir)
+
         filesize = stat(filename).st_size
         print 'filesize', filesize
 

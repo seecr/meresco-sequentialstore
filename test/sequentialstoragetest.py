@@ -167,13 +167,13 @@ class SequentialStorageTest(SeecrTestCase):
 
     def testIndexIterMoreThanAFewValues(self):
         index = _Index(self.tempdir)
-        for i in xrange(15):
+        for i in xrange(1, 15):
             index['id%s' % i] = i * 7
         values = list(index.itervalues())
-        self.assertEquals(15, len(values))
+        self.assertEquals(14, len(values))
 
     def testIndexIterManyValuesAfterMerge(self):
-        bakje = range(3000)
+        bakje = range(1, 3000)
         shuffle(bakje)
         index = _Index(self.tempdir)
         for i in xrange(2000):
