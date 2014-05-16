@@ -64,17 +64,17 @@ class _SequentialStorageByNum(object):
             raise IndexError
         return data
 
-    def range(self, start=0, stop=None, inclusive=False):
+    def range(self, start=0, stop=None, inclusive=False, keepCompressed=False):
         stop = stop or LARGER_THAN_ANY_KEY
         _intcheck(start); _intcheck(stop)
         cmp = operator.le if inclusive else operator.lt
         blk = self._blkIndex.search(start)
-        key, data = self._blkIndex.scan(blk, target_key=start, greater=True)
+        key, data = self._blkIndex.scan(blk, target_key=start, greater=True, keepCompressed=keepCompressed)
         offset = self._f.tell()
         while cmp(key, stop):
             yield key, data
             self._f.seek(offset)
-            key, data = self._readNext()
+            key, data = self._readNext(keepCompressed=keepCompressed)
             offset = self._f.tell()
 
     def getMultiple(self, keys, ignoreMissing=False, keepCompressed=False):
@@ -106,8 +106,17 @@ class _SequentialStorageByNum(object):
             prev_key = key
 
     def copyTo(self, target, keys):
-        for key, data in self.getMultiple(keys=keys, keepCompressed=True):
-            target.add(key, data, alreadyCompressed=True)
+        keys = iter(keys)
+        allKeyData = self.range(keepCompressed=True)
+        nextKey = next(keys, None)
+        while not nextKey is None:
+            originalKey, data = next(allKeyData, (None, None))
+            if originalKey is None or originalKey > nextKey:
+                raise RuntimeError('key %s not found.' % nextKey)
+            if originalKey == nextKey:
+                target.add(nextKey, data, alreadyCompressed=True)
+                nextKey = next(keys, None)
+
 
     def close(self):
         self._f.close()

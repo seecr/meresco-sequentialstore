@@ -87,11 +87,7 @@ class SequentialStorage(object):
         tmpSeqStoreFile = join(directory, 'seqstore~')
         tmpSequentialStorageByNum = _SequentialStorageByNum(tmpSeqStoreFile)
         existingNumKeys = s._index.itervalues()
-        while True:
-            numKeys = list(islice(existingNumKeys, 0, 100))
-            if not numKeys:
-                break
-            s._seqStorageByNum.copyTo(tmpSequentialStorageByNum, numKeys)
+        s._seqStorageByNum.copyTo(tmpSequentialStorageByNum, existingNumKeys)
         s.close()
         tmpSequentialStorageByNum.close()
         rename(tmpSeqStoreFile, join(directory, 'seqstore'))
@@ -158,7 +154,7 @@ class _Index(object):
             lastSeenKey += 1
             query = NumericRangeQuery.newLongRange("value", lastSeenKey, Long.MAX_VALUE, True, False)
             collector = SeqStoreSortingCollector(2000)
-            self._searcher.search(query, None, collector)
+            self._searcher.search(query, collector)
             if collector.totalHits() == 0:
                 break
             for value in collector.collectedValues():
