@@ -1,7 +1,6 @@
-from os import getenv, makedirs, listdir, rename
+from os import getenv, makedirs, listdir, rename, remove
 from warnings import warn
 from os.path import join, isdir, isfile
-from itertools import islice
 
 from _sequentialstoragebynum import _SequentialStorageByNum
 
@@ -85,6 +84,8 @@ class SequentialStorage(object):
             raise ValueError('Directory %s does not belong to a %s.' % (directory, cls))
         s = cls(directory)
         tmpSeqStoreFile = join(directory, 'seqstore~')
+        if isfile(tmpSeqStoreFile):
+            remove(tmpSeqStoreFile)
         tmpSequentialStorageByNum = _SequentialStorageByNum(tmpSeqStoreFile)
         existingNumKeys = s._index.itervalues()
         s._seqStorageByNum.copyTo(tmpSequentialStorageByNum, existingNumKeys)
