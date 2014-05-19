@@ -109,7 +109,10 @@ class _SequentialStorageByNum(object):
     def copyTo(self, target, keys, skipDataCheck=False):
         keys = iter(keys)
         nextKey = next(keys, None)
-        self._f.seek(0)  # TODO: search + seekToBlk
+        if nextKey is None:
+            return
+        blk = self._blkIndex.search(nextKey)
+        self._f.seek(self._blkIndex.offset(blk))
         while not nextKey is None:
             try:
                 originalKey, data = self._readNext(target_key=nextKey, _keepCompressed=True, _keepCompressedVerifyData=not skipDataCheck)

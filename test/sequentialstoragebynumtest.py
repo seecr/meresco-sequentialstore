@@ -586,6 +586,12 @@ class SequentialStorageByNumTest(SeecrTestCase):
         s.copyTo(s2, [4])
         self.assertEquals([(1, 'one'), (3, 'three'), (4, 'four')], list(s2.range(0)))
 
+    def testCopyToWithNoKeys(self):
+        s = _SequentialStorageByNum(join(self.tempdir, 'original'))
+        s2 = _SequentialStorageByNum(join(self.tempdir, 'target'))
+        s.copyTo(target=s2, keys=[])
+        self.assertEquals([], list(s2.range()))
+
     def testCopyToSkipDataCheckFalse(self):
         data = randomString(255)
         s = _SequentialStorageByNum(self.tempfile)
