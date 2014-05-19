@@ -117,7 +117,6 @@ class _SequentialStorageByNum(object):
                 target.add(nextKey, data, alreadyCompressed=True)
                 nextKey = next(keys, None)
 
-
     def close(self):
         self._f.close()
 

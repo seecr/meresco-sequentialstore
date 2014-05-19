@@ -41,7 +41,7 @@ class SequentialStorage(object):
         self._directory = directory
         self._versionFormatCheck()
         self._index = _Index(join(directory, INDEX_DIR))
-        self._seqStorageByNum = _SequentialStorageByNum(join(directory, SEQSTORE_DIR))
+        self._seqStorageByNum = _SequentialStorageByNum(join(directory, SEQSTOREBYNUM_NAME))
         self._lastKey = self._seqStorageByNum.lastKey or 0
 
     def add(self, identifier, data):
@@ -80,7 +80,7 @@ class SequentialStorage(object):
     @classmethod
     def gc(cls, directory):
         """Works only for closed SequentialStorage for now."""
-        if not isdir(join(directory, INDEX_DIR)) or not isfile(join(directory, SEQSTORE_DIR)):
+        if not isdir(join(directory, INDEX_DIR)) or not isfile(join(directory, SEQSTOREBYNUM_NAME)):
             raise ValueError('Directory %s does not belong to a %s.' % (directory, cls))
         s = cls(directory)
         tmpSeqStoreFile = join(directory, 'seqstore~')
@@ -214,4 +214,4 @@ def _getLucene(path):
 
 DELETED_RECORD = object()
 INDEX_DIR = 'index'
-SEQSTORE_DIR = 'seqstore'
+SEQSTOREBYNUM_NAME = 'seqstore'
