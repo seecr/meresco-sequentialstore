@@ -64,20 +64,21 @@ class _SequentialStorageByNum(object):
             raise IndexError
         return data
 
-    def range(self, start=0, stop=None, inclusive=False, keepCompressed=False):
+    def range(self, start=0, stop=None, inclusive=False, _keepCompressed=False):
+        # Use _keepCompressed only internally, breaks recovery logic and abstractions.
         stop = stop or LARGER_THAN_ANY_KEY
         _intcheck(start); _intcheck(stop)
         cmp = operator.le if inclusive else operator.lt
         blk = self._blkIndex.search(start)
-        key, data = self._blkIndex.scan(blk, target_key=start, greater=True, keepCompressed=keepCompressed)
+        key, data = self._blkIndex.scan(blk, target_key=start, greater=True, _keepCompressed=_keepCompressed)
         offset = self._f.tell()
         while cmp(key, stop):
             yield key, data
             self._f.seek(offset)
-            key, data = self._readNext(keepCompressed=keepCompressed)
+            key, data = self._readNext(_keepCompressed=_keepCompressed)
             offset = self._f.tell()
 
-    def getMultiple(self, keys, ignoreMissing=False, keepCompressed=False):
+    def getMultiple(self, keys, ignoreMissing=False):
         offset = None
         prev_blk = None
         prev_key = None
@@ -89,11 +90,11 @@ class _SequentialStorageByNum(object):
             blk = self._blkIndex.search(key, lo=prev_blk or 0)
             try:
                 if self._blkIndex.offset(blk) > offset:
-                    key, data = self._blkIndex.scan(blk, target_key=key, keepCompressed=keepCompressed)
+                    key, data = self._blkIndex.scan(blk, target_key=key)
                 else:
                     if offset:
                         self._f.seek(offset)
-                    key, data = self._readNext(target_key=key, keepCompressed=keepCompressed)
+                    key, data = self._readNext(target_key=key)
                 offset = self._f.tell()
             except StopIteration:
                 if ignoreMissing:
@@ -107,7 +108,7 @@ class _SequentialStorageByNum(object):
 
     def copyTo(self, target, keys):
         keys = iter(keys)
-        allKeyData = self.range(keepCompressed=True)
+        allKeyData = self.range(_keepCompressed=True)
         nextKey = next(keys, None)
         while not nextKey is None:
             originalKey, data = next(allKeyData, (None, None))
@@ -123,7 +124,8 @@ class _SequentialStorageByNum(object):
     def flush(self):
         self._f.flush()
 
-    def _readNext(self, target_key=None, greater=False, keyOnly=False, last=False, keepCompressed=False):
+    def _readNext(self, target_key=None, greater=False, keyOnly=False, last=False, _keepCompressed=False):
+        # Use _keepCompressed only internally, breaks recovery logic and abstractions.
         line = "sentinel not yet found"
         key = None; data = None; lastKey = None
         while line != '':
@@ -145,7 +147,7 @@ class _SequentialStorageByNum(object):
                     elif not greater and key != target_key:
                         raise StopIteration
                 rawdata = self._f.read(length)
-                if keepCompressed:
+                if _keepCompressed:
                     data = rawdata
                 else:
                     try:
