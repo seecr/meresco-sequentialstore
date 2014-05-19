@@ -1,9 +1,10 @@
-from os import stat
-from os.path import join
+from os import stat, makedirs
+from os.path import join, isfile
 from time import time
 
 from meresco.sequentialstore import SequentialStorage
-from meresco.sequentialstore.garbagecollect import GarbageCollect
+from meresco.sequentialstore.sequentialstorage import INDEX_DIR, SEQSTOREBYNUM_NAME
+from meresco.sequentialstore.garbagecollect import garbageCollect
 
 from sequentialstoragebynumtest import randomString
 from seecr.test import SeecrTestCase
@@ -26,7 +27,7 @@ class GarbageCollectTest(SeecrTestCase):
         s.close()
         filesize = stat(filename).st_size
 
-        GarbageCollect(directory).collect()
+        garbageCollect(directory)
 
         newFileSize = stat(filename).st_size
         self.assertTrue(newFileSize < filesize)
@@ -37,6 +38,40 @@ class GarbageCollectTest(SeecrTestCase):
         self.assertEquals('data4', s['id:1'])
         self.assertRaises(KeyError, lambda: s['id:2'])
         self.assertEquals('data3', s['id:3'])
+
+    def testOnlyGcOnSequentialStorage(self):
+        self.assertRaises(ValueError, lambda: garbageCollect(join(self.tempdir, 'x')))
+
+        makedirs(join(self.tempdir, INDEX_DIR))
+        self.assertRaises(ValueError, lambda: garbageCollect(join(self.tempdir)))
+
+        open(join(self.tempdir, SEQSTOREBYNUM_NAME), 'w').close()
+        self.assertRaises(AssertionError, lambda: garbageCollect(join(self.tempdir)))
+
+        open(join(self.tempdir, 'sequentialstorage.version'), 'w').write('1')
+        garbageCollect(join(self.tempdir))
+
+    def testDontAppendOnPreviousInterruptedGC(self):
+        directory = join(self.tempdir, 'store')
+        s = SequentialStorage(directory)
+        filename = s._seqStorageByNum._f.name
+        s.add('id:1', 'data1')
+        s.add('id:2', 'data2')
+        s.close()
+        filesizeBefore = stat(filename).st_size
+
+        tmpSFilename = join(self.tempdir, 'store', 'seqstore~')
+        open(tmpSFilename, 'w').write('I should be gone')
+        self.assertTrue(isfile(tmpSFilename))
+
+        garbageCollect(directory)
+
+        self.assertFalse(isfile(tmpSFilename))
+        newFileSize = stat(filename).st_size
+        self.assertEquals(newFileSize, filesizeBefore)
+
+        s = SequentialStorage(directory)
+        self.assertEquals([(1, 'data1'), (2, 'data2')], list(s._seqStorageByNum.range()))
 
     def testLargerSequentialStorage(self):
         directory = join(self.tempdir, 'store')
@@ -52,11 +87,10 @@ class GarbageCollectTest(SeecrTestCase):
         self.assertEquals('data99', s['id:99'])
         s.close()
         t0 = time()
-        GarbageCollect(directory).collect()
+        garbageCollect(directory)
         s = SequentialStorage(directory)
         self.assertEquals('data99', s['id:99'])
         self.assertTiming(0.01, time() - t0, 0.05)
-
 
     def SKIP_testPerformance(self):
         data = randomString(200)
@@ -71,7 +105,7 @@ class GarbageCollectTest(SeecrTestCase):
         s.close()
         t0 = time()
 
-        gc = GarbageCollect(directory).collect
+        gc = lambda: garbageCollect(directory)
         from hotshot import Profile
         prof = Profile("/tmp/seqstore_gc.profile", lineevents=1, linetimings=1)
         try:
@@ -105,7 +139,7 @@ class GarbageCollectTest(SeecrTestCase):
         print 'filesize', filesize
 
         t0 = time()
-        GarbageCollect(directory).collect()
+        garbageCollect(directory)
         print "gc took %s" % (time() - t0)
 
         newFileSize = stat(filename).st_size
@@ -114,6 +148,3 @@ class GarbageCollectTest(SeecrTestCase):
 
         s = SequentialStorage(directory)
         self.assertEquals('data999', s['id:999'])
-
-    def testOnlyGcOnSequentialStorage(self):
-        self.assertRaises(ValueError, lambda: GarbageCollect(join(self.tempdir, 'x')).collect())

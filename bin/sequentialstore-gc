@@ -15,9 +15,21 @@ from sys import argv
 from meresco.sequentialstore.garbagecollect import GarbageCollect
 
 if __name__ == '__main__':
-    if not len(argv) == 2:
-        print "Usage: %s <directory>" % argv[0]
+    args = argv[1:]
+    skipDataCheck = False
+    verbose = False
+    if '--skip-data-check' in args:
+        skipDataCheck = True
+        args.remove('--safe')
+    if '--verbose' in args:
+        verbose = True
+        args.remove('--verbose')
+
+    if not len(args) == 1:
+        print "Usage: %s [--verbose] [--safe] <directory>" % argv[0]
+        print "    --verbose          Print progress info;"
+        print "    --skip-data-check  Faster, but does not deal with all potential corruption."
         exit(1)
 
     directory = argv[1]
-    GarbageCollect(directory).collect()
+    GarbageCollect(directory, skipDataCheck=skipDataCheck, verbose=verbose).collect()

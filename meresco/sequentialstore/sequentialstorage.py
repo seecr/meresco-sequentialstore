@@ -78,7 +78,7 @@ class SequentialStorage(object):
         return ((keys2Identifiers.get(key), data) for key, data in result)
 
     @classmethod
-    def gc(cls, directory):
+    def gc(cls, directory, skipDataCheck=False, verbose=False):
         """Works only for closed SequentialStorage for now."""
         if not isdir(join(directory, INDEX_DIR)) or not isfile(join(directory, SEQSTOREBYNUM_NAME)):
             raise ValueError('Directory %s does not belong to a %s.' % (directory, cls))
@@ -88,7 +88,7 @@ class SequentialStorage(object):
             remove(tmpSeqStoreFile)
         tmpSequentialStorageByNum = _SequentialStorageByNum(tmpSeqStoreFile)
         existingNumKeys = s._index.itervalues()
-        s._seqStorageByNum.copyTo(tmpSequentialStorageByNum, existingNumKeys)
+        s._seqStorageByNum.copyTo(target=tmpSequentialStorageByNum, keys=existingNumKeys, skipDataCheck=skipDataCheck)
         s.close()
         tmpSequentialStorageByNum.close()
         rename(tmpSeqStoreFile, join(directory, 'seqstore'))

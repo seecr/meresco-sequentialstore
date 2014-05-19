@@ -29,6 +29,8 @@ from random import random, randint
 from time import time
 from itertools import islice
 
+from zlib import decompress
+
 from seecr.test import SeecrTestCase
 from weightless.core import consume
 
@@ -583,6 +585,14 @@ class SequentialStorageByNumTest(SeecrTestCase):
         s.add(4, 'four')
         s.copyTo(s2, [4])
         self.assertEquals([(1, 'one'), (3, 'three'), (4, 'four')], list(s2.range(0)))
+
+    def testKeepCompressed(self):
+        # Internal used for GC'ing
+        s = _SequentialStorageByNum(self.tempfile)
+        s.add(1, "one")
+        s.add(2, "two")
+        s.add(3, "three")
+        self.assertEquals([(1, "one"), (2, "two"), (3, "three")], [(k, decompress(v)) for k, v in s.range(_keepCompressed=True)])
 
 
 class ReopeningSeqStorage(object):

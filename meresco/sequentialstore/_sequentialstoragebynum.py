@@ -106,7 +106,7 @@ class _SequentialStorageByNum(object):
             prev_blk = blk
             prev_key = key
 
-    def copyTo(self, target, keys):
+    def copyTo(self, target, keys, skipDataCheck=False):
         keys = iter(keys)
         allKeyData = self.range(_keepCompressed=True)
         nextKey = next(keys, None)
@@ -114,6 +114,8 @@ class _SequentialStorageByNum(object):
             originalKey, data = next(allKeyData, (None, None))
             if originalKey is None or originalKey > nextKey:
                 raise RuntimeError('key %s not found.' % nextKey)
+            if skipDataCheck:
+                pass  # TODO: Implement
             if originalKey == nextKey:
                 target.add(nextKey, data, alreadyCompressed=True)
                 nextKey = next(keys, None)
