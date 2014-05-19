@@ -164,7 +164,6 @@ class _Index(object):
                 lastSeenKey = value
                 yield value
 
-
     def __delitem__(self, key):
         self._writer.deleteDocuments(Term("key", key))
         self._latestModifications[key] = DELETED_RECORD

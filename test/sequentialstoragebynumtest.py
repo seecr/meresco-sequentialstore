@@ -23,7 +23,7 @@
 #
 ## end license ##
 
-from os import fstat, SEEK_CUR
+from os import fstat, SEEK_CUR, stat
 from os.path import join, dirname, abspath
 from random import random, randint
 from time import time
@@ -586,13 +586,38 @@ class SequentialStorageByNumTest(SeecrTestCase):
         s.copyTo(s2, [4])
         self.assertEquals([(1, 'one'), (3, 'three'), (4, 'four')], list(s2.range(0)))
 
-    def testKeepCompressed(self):
-        # Internal used for GC'ing
+    def testCopyToSkipDataCheckFalse(self):
+        data = randomString(255)
         s = _SequentialStorageByNum(self.tempfile)
-        s.add(1, "one")
-        s.add(2, "two")
-        s.add(3, "three")
-        self.assertEquals([(1, "one"), (2, "two"), (3, "three")], [(k, decompress(v)) for k, v in s.range(_keepCompressed=True)])
+        s.add(1, data)
+        s.add(2, data)
+        s.close()
+        filesize = stat(self.tempfile).st_size
+        with open(self.tempfile, 'r+') as f:
+            f.truncate(filesize - 2)  # corrupt data for 2nd record
+        s = _SequentialStorageByNum(self.tempfile)
+        s.add(2, 'data again')
+        
+        target = _SequentialStorageByNum(join(self.tempdir, 'target'))
+        s.copyTo(target=target, keys=[1, 2], skipDataCheck=False)
+        self.assertEquals([(1, data), (2, 'data again')], list(target.range()))
+
+    def testCopyToSkipDataCheckTrueLosesValidData(self):
+        data = randomString(255)
+        s = _SequentialStorageByNum(self.tempfile)
+        s.add(1, data)
+        s.add(2, data)
+        s.close()
+        filesize = stat(self.tempfile).st_size
+        with open(self.tempfile, 'r+') as f:
+            f.truncate(filesize - 2)  # corrupt data for 2nd record
+        self.assertEquals(filesize - 2, stat(self.tempfile).st_size)
+        s = _SequentialStorageByNum(self.tempfile)
+        s.add(2, 'data again')
+        
+        target = _SequentialStorageByNum(join(self.tempdir, 'target'))
+        s.copyTo(target=target, keys=[1, 2], skipDataCheck=True)
+        self.assertEquals([(1, data)], list(target.range()))
 
 
 class ReopeningSeqStorage(object):
@@ -630,7 +655,6 @@ class ReopeningSeqStorage(object):
         return _SequentialStorageByNum(self.tempfile)
 
 
-
-
 def randomString(n):
     return ''.join(chr(randint(0, 255)) for x in xrange(n))
+
