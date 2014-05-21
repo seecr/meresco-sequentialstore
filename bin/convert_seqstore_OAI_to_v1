@@ -1,0 +1,52 @@
+#!/usr/bin/env python
+from os.path import abspath, dirname                #DO_NOT_DISTRIBUTE
+from os import system                               #DO_NOT_DISTRIBUTE
+from glob import glob                               #DO_NOT_DISTRIBUTE
+from sys import path as systemPath, exit            #DO_NOT_DISTRIBUTE
+parentdir = dirname(dirname(abspath(__file__)))     #DO_NOT_DISTRIBUTE
+system('find %s -name "*.pyc" | xargs rm -f' % parentdir)  #DO_NOT_DISTRIBUTE
+for path in glob(parentdir+'/deps.d/*'):            #DO_NOT_DISTRIBUTE
+    systemPath.insert(0, path)                      #DO_NOT_DISTRIBUTE
+systemPath.insert(0, parentdir)                     #DO_NOT_DISTRIBUTE
+print systemPath                                    #DO_NOT_DISTRIBUTE
+
+
+from sys import argv
+from os import makedirs, listdir
+from os.path import isdir, join
+from shutil import rmtree, copyfile
+
+from meresco.oai import OaiJazz
+from meresco.sequentialstore.sequentialstorage import SEQSTOREBYNUM_NAME, INDEX_DIR, SequentialStorage, _Index
+
+
+def convert(directory):
+    originalSequentialMultiStorageDir = join(directory, 'sequential-store')
+    oaiDir = join(directory, join(directory, 'oai'))
+    assert isdir(oaiDir) and isdir(originalSequentialMultiStorageDir)
+    oaiJazz = OaiJazz(oaiDir)  # includes check for OaiJazz storage format version
+
+    newMultiSequentialStorageDir = join(directory, 'store')
+    for name in listdir(originalSequentialMultiStorageDir):
+        newSequentialStorageDir = join(newMultiSequentialStorageDir, name)
+        SequentialStorage(newSequentialStorageDir).close()
+        copyfile(join(originalSequentialMultiStorageDir, name), join(newSequentialStorageDir, SEQSTOREBYNUM_NAME))
+        newIndex = _Index(join(newSequentialStorageDir, INDEX_DIR))
+        records = oaiJazz.oaiSelect(prefix=name, batchSize=oaiJazz.getNrOfRecords(prefix=name)).records
+        for record in records:
+            if not record.isDeleted:
+                print 'adding %s:%s to index' % (record.identifier, record.stamp)
+                newIndex[record.identifier] = record.stamp
+        newIndex.close()
+    rmtree(originalSequentialMultiStorageDir)
+
+
+if __name__ == '__main__':
+    args = argv[1:]
+
+    if not len(args) == 1:
+        print "Usage: %s <(ZP) state directory>" % argv[0]
+        exit(1)
+
+    directory = args[0]
+    convert(directory)
