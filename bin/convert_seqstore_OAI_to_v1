@@ -35,7 +35,6 @@ def convert(directory):
         records = oaiJazz.oaiSelect(prefix=name, batchSize=oaiJazz.getNrOfRecords(prefix=name)).records
         for record in records:
             if not record.isDeleted:
-                print 'adding %s:%s to index' % (record.identifier, record.stamp)
                 newIndex[record.identifier] = record.stamp
         newIndex.close()
     rmtree(originalSequentialMultiStorageDir)

@@ -7,7 +7,8 @@ from shutil import rmtree
 from weightless.core import consume
 from meresco.oai import OaiJazz
 
-from meresco.sequentialstore import SequentialStorage, MultiSequentialStorage
+from meresco.sequentialstore import MultiSequentialStorage
+from meresco.sequentialstore._sequentialstoragebynum import _SequentialStorageByNum
 from meresco.sequentialstore.sequentialstorage import SEQSTOREBYNUM_NAME
 
 
@@ -18,34 +19,34 @@ if not isdir(binDir):
 
 class ConvertSeqstoreOAItov1Test(SeecrTestCase):
     def testConvert(self):
-        # contruct original layout with new object
+        # contruct starting point
         stateDir = join(self.tempdir, 'state')
         oaiJazz = OaiJazz(join(stateDir, 'oai'))
 
-        s = SequentialStorage(join(stateDir, 'fixture'))
-        s.add("abc", "DATA" * 10)
+        makedirs(join(stateDir, 'sequential-store'))
+        s = _SequentialStorageByNum(join(stateDir, 'sequential-store', 'rdf'))
+
         oaiJazz.addOaiRecord('abc', sets=[('aSet', 'a set')], metadataFormats=[('rdf', '', '')])
+        stamp = oaiJazz.getRecord('abc').stamp
+        s.add(stamp, "DATA" * 10)
 
-        s.add("def", "DATA" * 10)
-        oaiJazz.addOaiRecord('def', sets=[('aSet', 'a set')], metadataFormats=[('rdf', '', '')])
+        oaiJazz.addOaiRecord("def", sets=[('aSet', 'a set')], metadataFormats=[('rdf', '', '')])
+        stamp = oaiJazz.getRecord('def').stamp
+        s.add(stamp, "DATA" * 10)
 
-        s.add("abc", "OTHER" * 10)
         oaiJazz.addOaiRecord('abc', sets=[('aSet', 'a set')], metadataFormats=[('rdf', '', '')])
+        stamp = oaiJazz.getRecord('abc').stamp
+        s.add(stamp, "OTHER" * 10)
 
-        s.add("ghi", "DATA" * 10)
         oaiJazz.addOaiRecord('ghi', sets=[('aSet', 'a set')], metadataFormats=[('rdf', '', '')])
+        stamp = oaiJazz.getRecord('ghi').stamp
+        s.add(stamp, "DATA" * 10)
 
-        s.delete("ghi")
         consume(oaiJazz.delete("ghi"))
+
         s.close()
         oaiJazz.close()
-
-        makedirs(join(stateDir, 'sequential-store'))
-        rename(join(stateDir, 'fixture', SEQSTOREBYNUM_NAME), join(stateDir, 'sequential-store', 'rdf'))
-        rmtree(join(stateDir, 'fixture'))
-
-        # now in original state
-        #raw_input(stateDir)
+        # now in starting point state
 
         logFile = join(self.tempdir, 'convert_seqstore_OAI_to_v1.log')
         system("%s %s > %s 2>&1" % (
@@ -53,11 +54,10 @@ class ConvertSeqstoreOAItov1Test(SeecrTestCase):
                 stateDir,
                 join(logFile),
             ))
-
-        print open(logFile).read()
-        from sys import stdout; stdout.flush()
+        output = open(logFile).read()
+        self.assertFalse('Traceback' in output, output)
 
         mss = MultiSequentialStorage(join(stateDir, 'store'))
         self.assertEquals('OTHER' * 10, mss.getData(identifier='abc', name='rdf'))
         self.assertEquals('DATA' * 10, mss.getData(identifier='def', name='rdf'))
-        self.assertRaises(KeyError, mss.getData(identifier='ghi', name='rdf'))
+        self.assertRaises(KeyError, lambda: mss.getData(identifier='ghi', name='rdf'))
