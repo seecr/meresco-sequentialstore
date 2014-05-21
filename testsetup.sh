@@ -37,6 +37,7 @@ fi
 VERSION="x.y.z"
 
 definePythonVars $pyversion
+(cd $mydir/src; ./build.sh ${SITEPACKAGES}/meresco/sequentialstore)
 ${PYTHON} setup.py install --root tmp
 cp -r test tmp/test
 removeDoNotDistribute tmp
