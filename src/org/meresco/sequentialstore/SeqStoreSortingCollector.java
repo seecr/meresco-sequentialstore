@@ -74,18 +74,6 @@ public class SeqStoreSortingCollector extends Collector {
         this.earlyCollector = new EarlyTerminatingSortingCollector(this.topDocsCollector, new NumericDocValuesSorter("value", true), maxDocsToCollect);
     }
 
-    // public Document[] docs(IndexSearcher searcher) throws IOException {
-    //     // Set<String> fieldsToVisit = new HashSet<String>(1);
-    //     // fieldsToVisit.add("value");
-    //     ScoreDoc[] hits = this.topDocsCollector.topDocs().scoreDocs;
-    //     Document[] docs = new Document[hits.length];
-    //     for (int i=0; i<hits.length; i++) {
-    //         docs[i] = searcher.doc(hits[i].doc); //, fieldsToVisit);
-    //         // System.out.println("" + hits[i].doc + ": " + docs[i].getField("value").numericValue().longValue());
-    //     }
-    //     return docs;
-    // }
-
     public long[] collectedValues() {
         sortAndSliceCollectedValues();
         return this.collectedValues;  // TODO: maybe without trail of 0s
