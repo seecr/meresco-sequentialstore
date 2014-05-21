@@ -12,7 +12,7 @@ print systemPath                                    #DO_NOT_DISTRIBUTE
 
 from sys import argv
 
-from meresco.sequentialstore.garbagecollect import GarbageCollect
+from meresco.sequentialstore.garbagecollect import garbageCollect
 
 if __name__ == '__main__':
     args = argv[1:]
@@ -20,7 +20,7 @@ if __name__ == '__main__':
     verbose = False
     if '--skip-data-check' in args:
         skipDataCheck = True
-        args.remove('--safe')
+        args.remove('--skip-data-check')
     if '--verbose' in args:
         verbose = True
         args.remove('--verbose')
@@ -31,5 +31,5 @@ if __name__ == '__main__':
         print "    --skip-data-check  Faster, but does not deal with all potential corruption."
         exit(1)
 
-    directory = argv[1]
-    GarbageCollect(directory, skipDataCheck=skipDataCheck, verbose=verbose).collect()
+    directory = args[0]
+    garbageCollect(directory, skipDataCheck=skipDataCheck, verbose=verbose)
