@@ -23,15 +23,17 @@
 #
 ## end license ##
 
+from seecr.test import SeecrTestCase
+from .testutils import randomString
+
 from os import fstat, SEEK_CUR, stat
 from os.path import join, dirname, abspath
-from random import random, randint
+from random import random
 from time import time
 from itertools import islice
 
 from zlib import decompress
 
-from seecr.test import SeecrTestCase
 from weightless.core import consume
 
 from meresco.sequentialstore._sequentialstoragebynum import _SequentialStorageByNum, SENTINEL, DEFAULT_BLOCK_SIZE
@@ -659,8 +661,4 @@ class ReopeningSeqStorage(object):
 
     def seqStorage(self):
         return _SequentialStorageByNum(self.tempfile)
-
-
-def randomString(n):
-    return ''.join(chr(randint(0, 255)) for x in xrange(n))
 
