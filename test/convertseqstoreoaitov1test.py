@@ -44,6 +44,11 @@ class ConvertSeqstoreOAItov1Test(SeecrTestCase):
 
         consume(oaiJazz.delete("ghi"))
 
+        for i in xrange(210):
+            oaiJazz.addOaiRecord('id%s' % i, sets=[], metadataFormats=[('rdf', '', '')])
+            stamp = oaiJazz.getRecord('id%s' % i).stamp
+            s.add(stamp, "ABC" * 100)
+
         s.close()
         oaiJazz.close()
         # now in starting point state
@@ -56,8 +61,12 @@ class ConvertSeqstoreOAItov1Test(SeecrTestCase):
             ))
         output = open(logFile).read()
         self.assertFalse('Traceback' in output, output)
+        print output
+        from sys import stdout; stdout.flush()
 
         mss = MultiSequentialStorage(join(stateDir, 'store'))
         self.assertEquals('OTHER' * 10, mss.getData(identifier='abc', name='rdf'))
         self.assertEquals('DATA' * 10, mss.getData(identifier='def', name='rdf'))
         self.assertRaises(KeyError, lambda: mss.getData(identifier='ghi', name='rdf'))
+
+        self.assertEquals("ABC" * 100, mss.getData(identifier='id209', name='rdf'))
