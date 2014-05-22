@@ -12,7 +12,7 @@ print systemPath                                    #DO_NOT_DISTRIBUTE
 
 import sys
 from sys import argv
-from os import listdir
+from os import listdir, getenv, environ
 from os.path import isdir, join
 from shutil import rmtree, copyfile
 
@@ -69,4 +69,9 @@ if __name__ == '__main__':
         exit(1)
 
     directory = args[0]
+
+    maxheap = getenv('PYLUCENE_MAXHEAP')
+    if not maxheap:
+        environ['PYLUCENE_MAXHEAP'] = '1g'
+
     convert(directory)
