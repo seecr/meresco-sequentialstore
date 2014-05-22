@@ -6,7 +6,7 @@ from meresco.sequentialstore import SequentialStorage
 from meresco.sequentialstore.sequentialstorage import INDEX_DIR, SEQSTOREBYNUM_NAME
 from meresco.sequentialstore.garbagecollect import garbageCollect
 
-from .testutils import randomString
+from testutils import randomString
 from seecr.test import SeecrTestCase
 
 

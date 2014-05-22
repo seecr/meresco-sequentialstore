@@ -1,7 +1,8 @@
+from seecr.test import SeecrTestCase
+from testutils import randomString
+
 from os.path import join, isfile
 from random import shuffle
-
-from seecr.test import SeecrTestCase
 
 from meresco.sequentialstore import SequentialStorage
 from meresco.sequentialstore.sequentialstorage import _Index

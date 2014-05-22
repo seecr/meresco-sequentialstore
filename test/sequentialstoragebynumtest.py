@@ -24,7 +24,7 @@
 ## end license ##
 
 from seecr.test import SeecrTestCase
-from .testutils import randomString
+from testutils import randomString
 
 from os import fstat, SEEK_CUR, stat
 from os.path import join, dirname, abspath
