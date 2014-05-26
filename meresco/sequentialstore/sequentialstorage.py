@@ -15,10 +15,10 @@ def lazyImport():
     from java.io import File
     from org.apache.lucene.document import Document, StringField, Field, LongField, FieldType, NumericDocValuesField
     from org.apache.lucene.search import IndexSearcher, TermQuery, BooleanQuery, BooleanClause, MatchAllDocsQuery, NumericRangeQuery
-    from org.apache.lucene.index import DirectoryReader, Term, IndexWriter, IndexWriterConfig
+    from org.apache.lucene.index import AtomicReader, DirectoryReader, Term, IndexWriter, IndexWriterConfig
     from org.apache.lucene.index.sorter import SortingMergePolicy, NumericDocValuesSorter
     from org.apache.lucene.store import FSDirectory
-    from org.apache.lucene.util import Version
+    from org.apache.lucene.util import Version, BytesRef
     from org.apache.lucene.analysis.core import WhitespaceAnalyzer
 
     from meresco_sequentialstore import initVM as initMerescoSequentialStore
@@ -28,7 +28,7 @@ def lazyImport():
 
     StampType = FieldType()
     StampType.setIndexed(True)
-    StampType.setStored(True)
+    StampType.setStored(False)
     StampType.setNumericType(FieldType.NumericType.LONG)
 
     globals().update(locals())
@@ -137,10 +137,26 @@ class _Index(object):
         elif value is not None:
             return value
         self._maybeReopen()
-        topDocs = self._searcher.search(TermQuery(Term("key", key)), 1)
-        if topDocs.totalHits == 0:
+
+        if True:  # HCK...; StampType -> StampType.setStored(False)
+            leaves = self._reader.leaves()
+            for leaf in leaves:
+                reader = leaf.reader()
+                reader = AtomicReader.cast_(reader)
+                docsenum = reader.termDocsEnum(Term("key", BytesRef(key)))
+                if docsenum is None:
+                    continue
+                docId = docsenum.nextDoc()
+                if docId == docsenum.NO_MORE_DOCS:
+                    continue
+                numDocValues = reader.getNumericDocValues("value")
+                return numDocValues.get(docId)
             raise KeyError(key)
-        return self._searcher.doc(topDocs.scoreDocs[0].doc).getField("value").numericValue().longValue()
+        else:  # HCK...; StampType -> StampType.setStored(True)
+            topDocs = self._searcher.search(TermQuery(Term("key", key)), 1)
+            if topDocs.totalHits == 0:
+                raise KeyError(key)
+            return self._searcher.doc(topDocs.scoreDocs[0].doc).getField("value").numericValue().longValue()
 
     def get(self, key, default=None):
         try:
