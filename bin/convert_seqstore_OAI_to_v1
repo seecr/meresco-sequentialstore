@@ -37,6 +37,7 @@ def convert(directory):
         continueAfter = 0
         nrOfRecords = oaiJazz.getNrOfRecords(prefix=name)
         count = 0
+        deletes = 0
         print
         while True:
             oaiSelectResult = oaiJazz.oaiSelect(prefix=name, continueAfter=continueAfter)
@@ -44,15 +45,17 @@ def convert(directory):
             for record in records:
                 count += 1
                 if count % 1000 == 0:
-                    print '\033[1AProcessed %s of %s records.' % (count, nrOfRecords)
+                    print '\033[1AProcessed %s of %s records (%s deletes, continueAfter %s).' % (count, nrOfRecords, deletes, continueAfter)
                     sys.stdout.flush()
-                if not record.isDeleted:
+                if record.isDeleted:
+                    deletes += 1
+                else:
                     newIndex[record.identifier] = record.stamp
             continueAfter = oaiSelectResult.continueAfter
             if continueAfter is None:
                 break
         newIndex.close()
-        print '\033[1AProcessed %s of %s records.' % (count, nrOfRecords)
+        print '\033[1AProcessed %s of %s records (%s deletes).' % (count, nrOfRecords, deletes)
         print 'processed SequentialStorage named "%s"' % name
         sys.stdout.flush()
     rmtree(originalSequentialMultiStorageDir)
