@@ -12,6 +12,8 @@ print systemPath                                    #DO_NOT_DISTRIBUTE
 
 import sys
 from sys import argv
+from traceback import print_exc
+from signal import signal, SIGINT, SIGTERM
 from os import listdir, getenv, environ
 from os.path import isdir, join
 from shutil import rmtree, copyfile
@@ -34,6 +36,8 @@ def convert(directory):
         SequentialStorage(newSequentialStorageDir).close()
         copyfile(join(originalSequentialMultiStorageDir, name), join(newSequentialStorageDir, SEQSTOREBYNUM_NAME))
         newIndex = _Index(join(newSequentialStorageDir, INDEX_DIR))
+        signal(SIGINT, shutdown)
+        signal(SIGTERM, shutdown)
         try:
             continueAfter = 0
             nrOfRecords = oaiJazz.getNrOfRecords(prefix=name)
@@ -55,14 +59,28 @@ def convert(directory):
                 continueAfter = oaiSelectResult.continueAfter
                 if continueAfter is None:
                     break
+        except:
+            print_exc()
+            sys.stdout.flush()
+            sys.stderr.flush()
+            raise
+        finally:
+            print 'closing index\n'
+            sys.stdout.flush()
             newIndex.close()
             print '\033[1AProcessed %s of %s records (%s deletes).' % (count, nrOfRecords, deletes)
             print 'processed SequentialStorage named "%s"' % name
             sys.stdout.flush()
-        except (SystemExit, KeyboardInterrupt):
-            newIndex.close()
-            raise
+            sys.stderr.flush()
     rmtree(originalSequentialMultiStorageDir)
+
+
+def shutdown(signum, frame):
+    print 'shutdown', signum, frame
+    sys.stdout.flush()
+    if signum == SIGINT:
+        raise KeyboardInterrupt
+    raise SystemExit
 
 
 if __name__ == '__main__':
