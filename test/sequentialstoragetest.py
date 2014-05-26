@@ -184,7 +184,6 @@ class SequentialStorageTest(SeecrTestCase):
         except Exception, e:
             self.assertTrue(repr(e).startswith('JavaError(<Throwable: org.apache.lucene.store.LockObtainFailedException: Lock obtain timed out: NativeFSLock'), e)
 
-
     def testIndexIterValues(self):
         index = _Index(self.tempdir)
         index['id0'] = 1

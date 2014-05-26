@@ -53,13 +53,13 @@ public class SeqStoreSortingCollector extends Collector {
     private boolean shouldCountHits;
     private int maxDocsToCollect;
     private int docBase;
-    private boolean delegateTerminated = false;
+    private boolean segmentCollectTerminated = false;
     public boolean moreRecordsAvailable = false;
     private NumericDocValues segmentNumericDocValues;
     private long[] collectedValues;
-    private int insertPosition = 0;
-    private EarlyTerminatingSortingCollector earlyCollector;
-    private TopFieldCollector topDocsCollector;
+    private int numberOfCollectedValues = 0;
+    private long[] segmentValues;
+    private int insertPosition;
 
     public SeqStoreSortingCollector(int maxDocsToCollect) throws IOException {
         this(maxDocsToCollect, false);
@@ -69,20 +69,11 @@ public class SeqStoreSortingCollector extends Collector {
         this.maxDocsToCollect = maxDocsToCollect;
         this.shouldCountHits = shouldCountHits;
         this.collectedValues = new long[maxDocsToCollect * 2];
-
-        this.topDocsCollector = TopFieldCollector.create(new Sort(new SortField("value", SortField.Type.LONG)), maxDocsToCollect, false, false, false, false);
-        this.earlyCollector = new EarlyTerminatingSortingCollector(this.topDocsCollector, new NumericDocValuesSorter("value", true), maxDocsToCollect);
     }
 
     public long[] collectedValues() {
-        sortAndSliceCollectedValues();
+        collectSegmentValues();
         return this.collectedValues;  // TODO: maybe without trail of 0s
-    }
-
-    private void sortAndSliceCollectedValues() {
-        Arrays.sort(this.collectedValues, 0, this.insertPosition);
-        Arrays.fill(this.collectedValues, this.maxDocsToCollect, this.maxDocsToCollect * 2, 0);
-        this.insertPosition = Math.min(this.insertPosition, this.maxDocsToCollect);
     }
 
     public int remainingRecords() {
@@ -99,50 +90,53 @@ public class SeqStoreSortingCollector extends Collector {
 
     @Override
     public void collect(int doc) throws IOException {
-        //System.out.println("collect " + (this.docBase + doc));
+        //System.out.println("collect " + (this.docBase + doc) + " in segment with docBase " + this.docBase);
         this.hitCount++;
         if (this.hitCount > this.maxDocsToCollect) {
             this.moreRecordsAvailable = true;
         }
-        if (delegateTerminated) {
+        if (segmentCollectTerminated) {
             return;
         }
-        try {
-            this.earlyCollector.collect(doc);
-            if (this.insertPosition >= this.maxDocsToCollect * 2) {
-                sortAndSliceCollectedValues();
-            }
-            long value = this.segmentNumericDocValues.get(doc);
-            if (this.insertPosition >= this.maxDocsToCollect && value >= this.collectedValues[this.insertPosition - 1]) {
+        if (this.insertPosition >= this.maxDocsToCollect) {
+            segmentCollectTerminated = true;
+            if (!this.shouldCountHits) {
                 throw new CollectionTerminatedException();
             }
-            this.collectedValues[this.insertPosition] = value;
-            this.insertPosition++;
+            return;
         }
-        catch (CollectionTerminatedException e) {
-            //System.out.println("CollectionTerminatedException at " + this.hitCount);
-            delegateTerminated = true;
-            if (!this.shouldCountHits) {
-                throw e;
-            }
-        }
+        this.segmentValues[this.insertPosition] = this.segmentNumericDocValues.get(doc);
+        this.insertPosition++;
     }
 
     @Override
     public void setScorer(Scorer scorer) throws IOException {
-        this.earlyCollector.setScorer(scorer);
     }
 
     @Override
     public void setNextReader(AtomicReaderContext context) throws IOException {
-        this.delegateTerminated = false;
-        this.earlyCollector.setNextReader(context);
+        collectSegmentValues();
+        this.segmentCollectTerminated = false;
         this.docBase = context.docBase;
         this.segmentNumericDocValues = context.reader().getNumericDocValues("value");
+        this.segmentValues = new long[maxDocsToCollect];
+    }
+
+    private void collectSegmentValues() {
+        if (this.insertPosition > 0) {
+            //System.out.println("collectSegmentValues: " + Arrays.toString(this.segmentValues) + ", " + Arrays.toString(this.collectedValues));
+            System.arraycopy(this.segmentValues, 0, this.collectedValues, numberOfCollectedValues, this.insertPosition);
+            this.numberOfCollectedValues += this.insertPosition;
+            Arrays.sort(this.collectedValues, 0, this.numberOfCollectedValues);
+            Arrays.fill(this.collectedValues, this.maxDocsToCollect, this.maxDocsToCollect * 2, 0);
+            this.numberOfCollectedValues = Math.min(this.numberOfCollectedValues, this.maxDocsToCollect);
+
+            this.insertPosition = 0;
+        }
     }
 
     @Override
     public boolean acceptsDocsOutOfOrder() {
-        return this.earlyCollector.acceptsDocsOutOfOrder();
+        return false;
     }
 }
