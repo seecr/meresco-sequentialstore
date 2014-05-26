@@ -94,10 +94,12 @@ class SequentialStorage(object):
         rename(tmpSeqStoreFile, join(directory, 'seqstore'))
 
     def close(self):
-        self._seqStorageByNum.close()
-        self._seqStorageByNum = None
-        self._index.close()
-        self._index = None
+        if not getattr(self, '_seqStorageByNum', None) is None:
+            self._seqStorageByNum.close()
+            self._seqStorageByNum = None
+        if not getattr(self, '_index', None) is None:
+            self._index.close()
+            self._index = None
 
     def _versionFormatCheck(self):
         versionFile = join(self._directory, "sequentialstorage.version")
@@ -197,7 +199,9 @@ class _Index(object):
             self._latestModifications.clear()
 
     def close(self):
-        self._writer.close()
+        if not getattr(self, '_writer', None) is None:
+            self._writer.close()
+            self._writer = None
 
 
 def importVM():
