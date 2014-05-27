@@ -1,9 +1,11 @@
+from os.path import join
+from time import time
+from random import randint
+
 from seecr.test import SeecrTestCase
+from testutils import randomString
 
 from meresco.sequentialstore import SequentialStorage
-
-from time import time, sleep
-from random import randint
 
 
 class PerformanceSequentialStorageTest(SeecrTestCase):
@@ -48,4 +50,45 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
         #from seecr.utils.profileit import profile
         #profile(f)
         f()
+
+    def testMicroPerformance(self):
+        # ...
+        sequentialStorage = SequentialStorage(self.tempdir)
+        mockData = randomString(500)
+        t0 = time()
+        for i in xrange(50000):
+            sequentialStorage.add(identifier=str(i), data=mockData)
+        print '>>> ss.add()', time() - t0
+
+        t0 = time()
+        list(sequentialStorage._index.itervalues())
+        print '>>> list(ss._index.itervalues()) - warm', time() - t0
+        sequentialStorage.close()
+
+        sequentialStorage = SequentialStorage(self.tempdir)
+        t0 = time()
+        list(sequentialStorage._index.itervalues())
+        print '>>> list(ss._index.itervalues()) - cold', time() - t0
+
+        from meresco.sequentialstore._sequentialstoragebynum import _SequentialStorageByNum
+        s = _SequentialStorageByNum(self.tempfile)
+        t0 = time()
+        for i in xrange(50000):
+            s.add(key=i, data=mockData)
+        print '>>> ss_bynum.add()', time() - t0
+
+        s2 = _SequentialStorageByNum(join(self.tempdir, 's2'))
+        t0 = time()
+        sequentialStorage._seqStorageByNum.copyTo(target=s2, keys=sequentialStorage._index.itervalues(), skipDataCheck=False)
+        print '>>> ss_bynum.copyTo()', time() - t0
+
+        s3 = _SequentialStorageByNum(join(self.tempdir, 's3'))
+        t0 = time()
+        sequentialStorage._seqStorageByNum.copyTo(target=s3, keys=sequentialStorage._index.itervalues(), skipDataCheck=True)
+        print '>>> ss_bynum.copyTo(skipDataCheck=True)', time() - t0
+
+        sequentialStorage.close()
+        s.close()
+        s2.close()
+        s3.close()
 
