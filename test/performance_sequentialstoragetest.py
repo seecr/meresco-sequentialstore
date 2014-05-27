@@ -51,6 +51,28 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
         #profile(f)
         f()
 
+    def testIterValues(self):
+        N = 50000
+        c = SequentialStorage(self.tempdir)
+        H = "This is a holding-like record, at least, it tries to look like it, but I am not sure if it is really something that comes close enough. Anyway, here you go: Holding: %s"
+        self.assertEquals(168, len(H))
+        for i in xrange(N):
+            c.add(identifier="http://nederland.nl/%s" % i, data=H % i)
+        print 'built store with index'
+        from sys import stdout; stdout.flush()
+
+        M = 100
+        def f():
+            t0 = time()
+            for i in xrange(M):
+                l = list(c._index.itervalues())
+            print 'list itervalues took on avg.', (time() - t0) / M
+            self.assertEquals(N, len(l))
+            self.assertEquals(l, sorted(l))
+        #from seecr.utils.profileit import profile
+        #profile(f)
+        f()
+
     def testMicroPerformance(self):
         # ...
         sequentialStorage = SequentialStorage(self.tempdir)

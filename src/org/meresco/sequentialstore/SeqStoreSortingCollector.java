@@ -54,7 +54,6 @@ public class SeqStoreSortingCollector extends Collector {
     private int maxDocsToCollect;
     private int docBase;
     private boolean segmentCollectTerminated = false;
-    public boolean moreRecordsAvailable = false;
     private NumericDocValues segmentNumericDocValues;
     private long[] collectedValues;
     private int numberOfCollectedValues = 0;
@@ -66,6 +65,7 @@ public class SeqStoreSortingCollector extends Collector {
     }
 
     public SeqStoreSortingCollector(int maxDocsToCollect, boolean shouldCountHits) throws IOException {
+        //System.out.println("new SeqStoreSortingCollector");
         this.maxDocsToCollect = maxDocsToCollect;
         this.shouldCountHits = shouldCountHits;
         this.collectedValues = new long[maxDocsToCollect * 2];
@@ -92,21 +92,29 @@ public class SeqStoreSortingCollector extends Collector {
     public void collect(int doc) throws IOException {
         //System.out.println("collect " + (this.docBase + doc) + " in segment with docBase " + this.docBase);
         this.hitCount++;
-        if (this.hitCount > this.maxDocsToCollect) {
-            this.moreRecordsAvailable = true;
-        }
         if (segmentCollectTerminated) {
             return;
         }
+        long value;
         if (this.insertPosition >= this.maxDocsToCollect) {
             segmentCollectTerminated = true;
+        }
+        else {
+            value = this.segmentNumericDocValues.get(doc);
+            if (this.numberOfCollectedValues >= this.maxDocsToCollect && value > this.collectedValues[this.maxDocsToCollect -1]) {
+                //System.out.println("Skipping remainder of this segment as " + value + " > " + this.collectedValues[this.maxDocsToCollect -1]);
+                segmentCollectTerminated = true;
+            }
+            else {
+                this.segmentValues[this.insertPosition] = value;
+                this.insertPosition++;
+            }
+        }
+        if (segmentCollectTerminated) {
             if (!this.shouldCountHits) {
                 throw new CollectionTerminatedException();
             }
-            return;
         }
-        this.segmentValues[this.insertPosition] = this.segmentNumericDocValues.get(doc);
-        this.insertPosition++;
     }
 
     @Override
@@ -124,15 +132,16 @@ public class SeqStoreSortingCollector extends Collector {
 
     private void collectSegmentValues() {
         if (this.insertPosition > 0) {
-            if (this.numberOfCollectedValues >= this.maxDocsToCollect && this.segmentValues[0] > this.collectedValues[this.maxDocsToCollect - 1]) {
-                return;
-            }
             //System.out.println("collectSegmentValues: " + Arrays.toString(this.segmentValues) + ", " + Arrays.toString(this.collectedValues));
+            long startTime = System.nanoTime();
+
             System.arraycopy(this.segmentValues, 0, this.collectedValues, numberOfCollectedValues, this.insertPosition);
             this.numberOfCollectedValues += this.insertPosition;
             Arrays.sort(this.collectedValues, 0, this.numberOfCollectedValues);
             Arrays.fill(this.collectedValues, this.maxDocsToCollect, this.maxDocsToCollect * 2, 0);
             this.numberOfCollectedValues = Math.min(this.numberOfCollectedValues, this.maxDocsToCollect);
+
+            //System.out.println("collectSegmentValues took " + (System.nanoTime() - startTime));
 
             this.insertPosition = 0;
         }
