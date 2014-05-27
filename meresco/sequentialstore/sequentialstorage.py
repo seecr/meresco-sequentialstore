@@ -24,7 +24,7 @@ def lazyImport():
     from meresco_sequentialstore import initVM as initMerescoSequentialStore
     initMerescoSequentialStore()
 
-    from org.meresco.sequentialstore import SeqStoreSortingCollector
+    from org.meresco.sequentialstore import SeqStorageIndex, SeqStoreSortingCollector
 
     StampType = FieldType()
     StampType.setIndexed(True)
@@ -115,21 +115,13 @@ class SequentialStorage(object):
 class _Index(object):
     def __init__(self, path):
         lazyImport()
-        self._writer, self._reader, self._searcher = _getLucene(path)
+        self._index = SeqStorageIndex(path)
         self._latestModifications = {}
-        self._keyField = StringField("key", "", Field.Store.NO)
-        self._valueField = LongField("value", 0L, StampType)
 
     def __setitem__(self, key, value):
         assert value > 0  # 0 has special meaning in this context
         self._maybeReopen()
-        doc = Document()
-        self._keyField.setStringValue(key)
-        doc.add(self._keyField)
-        self._valueField.setLongValue(long(value))
-        doc.add(self._valueField)
-        doc.add(NumericDocValuesField("value", long(value)))
-        self._writer.updateDocument(Term("key", key), doc)
+        self._index.setKeyValue(key, long(value))
         self._latestModifications[key] = value
 
     def __getitem__(self, key):
@@ -139,26 +131,10 @@ class _Index(object):
         elif value is not None:
             return value
         self._maybeReopen()
-
-        if True:  # HCK...; StampType -> StampType.setStored(False)
-            leaves = self._reader.leaves()
-            for leaf in leaves:
-                reader = leaf.reader()
-                reader = AtomicReader.cast_(reader)
-                docsenum = reader.termDocsEnum(Term("key", BytesRef(key)))
-                if docsenum is None:
-                    continue
-                docId = docsenum.nextDoc()
-                if docId == docsenum.NO_MORE_DOCS:
-                    continue
-                numDocValues = reader.getNumericDocValues("value")
-                return numDocValues.get(docId)
+        value = self._index.getValue(key)
+        if value == -1:
             raise KeyError(key)
-        else:  # HCK...; StampType -> StampType.setStored(True)
-            topDocs = self._searcher.search(TermQuery(Term("key", key)), 1)
-            if topDocs.totalHits == 0:
-                raise KeyError(key)
-            return self._searcher.doc(topDocs.scoreDocs[0].doc).getField("value").numericValue().longValue()
+        return value
 
     def get(self, key, default=None):
         try:
@@ -173,7 +149,7 @@ class _Index(object):
             lastSeenKey += 1
             query = NumericRangeQuery.newLongRange("value", lastSeenKey, Long.MAX_VALUE, True, False)
             collector = SeqStoreSortingCollector(2000)
-            self._searcher.search(query, collector)
+            self._index.searcher.search(query, collector)
             if collector.totalHits() == 0:
                 break
             for value in collector.collectedValues():
@@ -183,7 +159,7 @@ class _Index(object):
                 yield value
 
     def __delitem__(self, key):
-        self._writer.deleteDocuments(Term("key", key))
+        self._index.delete(key)
         self._latestModifications[key] = DELETED_RECORD
 
     def _maybeReopen(self):
@@ -191,17 +167,11 @@ class _Index(object):
             self._reopen()
 
     def _reopen(self):
-        newReader = DirectoryReader.openIfChanged(self._reader, self._writer, True)
-        if newReader:
-            self._reader.close()
-            self._reader = newReader
-            self._searcher = IndexSearcher(self._reader)
-            self._latestModifications.clear()
+        self._index.reopen()
+        self._latestModifications.clear()
 
     def close(self):
-        if not getattr(self, '_writer', None) is None:
-            self._writer.close()
-            self._writer = None
+        self._index.close()
 
 
 def importVM():

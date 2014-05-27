@@ -80,7 +80,7 @@ public class SeqStorageIndex {
         MergePolicy sortingMergePolicy = new SortingMergePolicy(mergePolicy, new NumericDocValuesSorter("value", true));
         config.setMergePolicy(sortingMergePolicy);
         this.writer = new IndexWriter(directory, config);
-        this.reader = DirectoryReader.open(directory);
+        this.reader = DirectoryReader.open(this.writer, true);
         this.searcher = new IndexSearcher(this.reader);
     }
 
