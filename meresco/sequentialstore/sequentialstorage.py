@@ -4,6 +4,7 @@ from os.path import join, isdir, isfile
 
 from _sequentialstoragebynum import _SequentialStorageByNum
 
+
 imported = False
 def lazyImport():
     global imported
@@ -13,25 +14,23 @@ def lazyImport():
     importVM()
     from java.lang import Long
     from java.io import File
-    from org.apache.lucene.document import Document, StringField, Field, LongField, FieldType, NumericDocValuesField
-    from org.apache.lucene.search import IndexSearcher, TermQuery, BooleanQuery, BooleanClause, MatchAllDocsQuery, NumericRangeQuery
-    from org.apache.lucene.index import AtomicReader, DirectoryReader, Term, IndexWriter, IndexWriterConfig
-    from org.apache.lucene.index.sorter import SortingMergePolicy, NumericDocValuesSorter
-    from org.apache.lucene.store import FSDirectory
-    from org.apache.lucene.util import Version, BytesRef
-    from org.apache.lucene.analysis.core import WhitespaceAnalyzer
-
+    from org.apache.lucene.search import NumericRangeQuery
     from meresco_sequentialstore import initVM as initMerescoSequentialStore
     initMerescoSequentialStore()
-
     from org.meresco.sequentialstore import SeqStorageIndex, SeqStoreSortingCollector
-
-    StampType = FieldType()
-    StampType.setIndexed(True)
-    StampType.setStored(False)
-    StampType.setNumericType(FieldType.NumericType.LONG)
-
     globals().update(locals())
+
+def importVM():
+    maxheap = getenv('PYLUCENE_MAXHEAP')
+    if not maxheap:
+        maxheap = '4g'
+        warn("Using '4g' as maxheap for lucene.initVM(). To override use PYLUCENE_MAXHEAP environment variable.")
+    from lucene import initVM, getVMEnv
+    try:
+        VM = initVM(maxheap=maxheap)#, vmargs='-agentlib:hprof=heap=sites')
+    except ValueError:
+        VM = getVMEnv()
+    return VM
 
 
 class SequentialStorage(object):
@@ -173,33 +172,6 @@ class _Index(object):
     def close(self):
         self._index.close()
 
-
-def importVM():
-    maxheap = getenv('PYLUCENE_MAXHEAP')
-    if not maxheap:
-        maxheap = '4g'
-        warn("Using '4g' as maxheap for lucene.initVM(). To override use PYLUCENE_MAXHEAP environment variable.")
-    from lucene import initVM, getVMEnv
-    try:
-        VM = initVM(maxheap=maxheap)#, vmargs='-agentlib:hprof=heap=sites')
-    except ValueError:
-        VM = getVMEnv()
-    return VM
-
-
-def _getLucene(path):
-    isdir(path) or makedirs(path)
-    directory = FSDirectory.open(File(path))
-    config = IndexWriterConfig(Version.LUCENE_43, None)
-    config.setRAMBufferSizeMB(256.0) # faster
-    #config.setUseCompoundFile(false) # faster, for Lucene 4.4 and later
-    mergePolicy = config.getMergePolicy()
-    sortingMergePolicy = SortingMergePolicy(mergePolicy, NumericDocValuesSorter("value", True))
-    config.setMergePolicy(sortingMergePolicy)
-    writer = IndexWriter(directory, config)
-    reader = writer.getReader()
-    searcher = IndexSearcher(reader)
-    return writer, reader, searcher
 
 DELETED_RECORD = object()
 INDEX_DIR = 'index'
