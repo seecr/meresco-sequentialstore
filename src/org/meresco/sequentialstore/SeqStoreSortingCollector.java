@@ -124,6 +124,9 @@ public class SeqStoreSortingCollector extends Collector {
 
     private void collectSegmentValues() {
         if (this.insertPosition > 0) {
+            if (this.numberOfCollectedValues >= this.maxDocsToCollect && this.segmentValues[0] > this.collectedValues[this.maxDocsToCollect - 1]) {
+                return;
+            }
             //System.out.println("collectSegmentValues: " + Arrays.toString(this.segmentValues) + ", " + Arrays.toString(this.collectedValues));
             System.arraycopy(this.segmentValues, 0, this.collectedValues, numberOfCollectedValues, this.insertPosition);
             this.numberOfCollectedValues += this.insertPosition;
