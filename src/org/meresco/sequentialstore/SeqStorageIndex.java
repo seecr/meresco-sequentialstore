@@ -62,6 +62,7 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.util.Version;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.NumericUtils;
+import org.apache.lucene.util.Bits;
 
 
 public class SeqStorageIndex {
@@ -144,26 +145,48 @@ public class SeqStorageIndex {
         final Iterator<AtomicReaderContext> leaves = this.reader.leaves().iterator();  // TODO: sort segments by docBase!
 
         return new PyIterator<Long>() {
-            AtomicReaderContext leaf = leaves.next();
-            TermsEnum termsEnum = leaf.reader().terms("value").iterator(null);
+            AtomicReaderContext leaf = null;
+            AtomicReader reader = null;
+            Bits liveDocs = null;
+            TermsEnum termsEnum = null;
 
             public Long next() {
-                System.out.println("next called");
                 try {
-                    BytesRef term = termsEnum.next();
+                    BytesRef term = null;
+                    Long result = null;
                     while (term == null) {
-                        try {
-                            System.out.println("next leaf");
-                            leaf = leaves.next();
-                        } catch (NoSuchElementException e) {
-                            return null;  // communicate 'StopIteration' to python
+                        if (termsEnum != null) {
+                            term = termsEnum.next();
                         }
-                        termsEnum = leaf.reader().terms("value").iterator(null);
-                        term = termsEnum.next();
+                        if (term == null) {
+                            try {
+                                leaf = leaves.next();
+                                //System.out.println("new leaf " + leaf + " with docBase " + leaf.docBase);
+                            } catch (NoSuchElementException e) {
+                                return null;  // communicate 'StopIteration' to python
+                            }
+                            reader = leaf.reader();
+                            liveDocs = reader.getLiveDocs();
+                            //System.out.println("liveDocs " + ((liveDocs != null) ? liveDocs.length() : liveDocs));
+                            termsEnum = reader.terms("value").iterator(null);
+                            continue;
+                        }
+
                         // TODO: deleted?
+                        DocsEnum docsEnum = termsEnum.docs(liveDocs, null, DocsEnum.FLAG_NONE);
+                        int docId = docsEnum.nextDoc();
+                        if (docId == docsEnum.NO_MORE_DOCS) {
+                            term = null;
+                            continue;
+                        }
+                        result = NumericUtils.prefixCodedToLong(term);
+                        //System.out.println("result " + result + ", doc " + (leaf.docBase + docId));
+                        if (result == 0L) {  // temp. HACK!!!
+                            //System.out.println("0L: " + term);
+                            term = null;
+                            termsEnum = null;
+                        }
                     }
-                    Long result = NumericUtils.prefixCodedToLong(term);
-                    System.out.println("result " + result);
                     return result;
                 } catch (IOException e) {
                     throw new RuntimeException(e);
