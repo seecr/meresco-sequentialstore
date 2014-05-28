@@ -153,7 +153,6 @@ public class SeqStorageIndex {
             public Long next() {
                 try {
                     BytesRef term = null;
-                    Long result = null;
                     while (term == null) {
                         if (termsEnum != null) {
                             term = termsEnum.next();
@@ -161,44 +160,29 @@ public class SeqStorageIndex {
                         if (term == null) {
                             try {
                                 leaf = leaves.next();
-                                //System.out.println("new leaf " + leaf + " with docBase " + leaf.docBase);
                             } catch (NoSuchElementException e) {
                                 return null;  // communicate 'StopIteration' to python
                             }
                             reader = leaf.reader();
                             liveDocs = reader.getLiveDocs();
-                            //System.out.println("liveDocs " + ((liveDocs != null) ? liveDocs.length() : liveDocs));
                             termsEnum = reader.terms("value").iterator(null);
+                            termsEnum = NumericUtils.filterPrefixCodedLongs(termsEnum);
                             continue;
                         }
-
-                        // TODO: deleted?
+                        // only keep values for docs that have not been deleted
                         DocsEnum docsEnum = termsEnum.docs(liveDocs, null, DocsEnum.FLAG_NONE);
                         int docId = docsEnum.nextDoc();
                         if (docId == docsEnum.NO_MORE_DOCS) {
                             term = null;
                             continue;
                         }
-                        result = NumericUtils.prefixCodedToLong(term);
-                        //System.out.println("result " + result + ", doc " + (leaf.docBase + docId));
-                        if (result == 0L) {  // temp. HACK!!!
-                            //System.out.println("0L: " + term);
-                            term = null;
-                            termsEnum = null;
-                        }
                     }
-                    return result;
+                    return NumericUtils.prefixCodedToLong(term);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             }
         };
-        /*
-            Per segment, 'termEnum' van 'terms' opvragen.
-            Segmenten sorteren op eerste term.
-            Voor elke next een nieuwe term opleveren.
-            TODO: skip deleted docs.
-        */
     }
 
 
