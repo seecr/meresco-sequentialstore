@@ -13,6 +13,10 @@ class SequentialStorageTest(SeecrTestCase):
         sequentialStorage.add(identifier='abc', data="1")
         self.assertEquals("1", sequentialStorage['abc'])
 
+    def testKeyErrorForUnknownKey(self):
+        sequentialStorage = SequentialStorage(self.tempdir)
+        self.assertRaises(KeyError, lambda: sequentialStorage['abc'])
+
     def testPersisted(self):
         sequentialStorage = SequentialStorage(self.tempdir)
         sequentialStorage.add(identifier='abc', data="1")
