@@ -29,6 +29,8 @@ package org.meresco.sequentialstore;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.FieldType;
@@ -44,6 +46,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.DocsEnum;
+import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.AtomicReader;
@@ -58,6 +61,7 @@ import org.apache.lucene.search.IndexSearcher;
 
 import org.apache.lucene.util.Version;
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.NumericUtils;
 
 
 public class SeqStorageIndex {
@@ -134,5 +138,48 @@ public class SeqStorageIndex {
             return numDocValues.get(docId);
         }
         return -1;
+    }
+
+    public PyIterator<Long> itervalues() throws IOException {
+        final Iterator<AtomicReaderContext> leaves = this.reader.leaves().iterator();  // TODO: sort segments by docBase!
+
+        return new PyIterator<Long>() {
+            AtomicReaderContext leaf = leaves.next();
+            TermsEnum termsEnum = leaf.reader().terms("value").iterator(null);
+
+            public Long next() {
+                System.out.println("next called");
+                try {
+                    BytesRef term = termsEnum.next();
+                    while (term == null) {
+                        try {
+                            System.out.println("next leaf");
+                            leaf = leaves.next();
+                        } catch (NoSuchElementException e) {
+                            return null;  // communicate 'StopIteration' to python
+                        }
+                        termsEnum = leaf.reader().terms("value").iterator(null);
+                        term = termsEnum.next();
+                        // TODO: deleted?
+                    }
+                    Long result = NumericUtils.prefixCodedToLong(term);
+                    System.out.println("result " + result);
+                    return result;
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
+        /*
+            Per segment, 'termEnum' van 'terms' opvragen.
+            Segmenten sorteren op eerste term.
+            Voor elke next een nieuwe term opleveren.
+            TODO: skip deleted docs.
+        */
+    }
+
+
+    public interface PyIterator<T> {
+        public T next();
     }
 }

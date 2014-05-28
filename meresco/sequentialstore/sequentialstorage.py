@@ -143,19 +143,7 @@ class _Index(object):
 
     def itervalues(self):
         self._reopen()
-        lastSeenKey = -1
-        while True:
-            lastSeenKey += 1
-            query = NumericRangeQuery.newLongRange("value", lastSeenKey, Long.MAX_VALUE, True, False)
-            collector = SeqStoreSortingCollector(2000)
-            self._index.searcher.search(query, collector)
-            if collector.totalHits() == 0:
-                break
-            for value in collector.collectedValues():
-                if value == 0:  # Note: on the assumption that SequentialStorage is 1 based
-                    break
-                lastSeenKey = value
-                yield value
+        return self._index.itervalues()
 
     def __delitem__(self, key):
         self._index.delete(key)
