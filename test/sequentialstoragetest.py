@@ -152,6 +152,14 @@ class SequentialStorageTest(SeecrTestCase):
         values = list(index.itervalues())
         self.assertEquals([1, 8], values)
 
+    def testIndexIterValuesAfterDelete(self):
+        index = _Index(self.tempdir)
+        index['id0'] = 1
+        index['id1'] = 8
+        del index['id0']
+        values = list(index.itervalues())
+        self.assertEquals([8], values)
+
     def testIndexItervaluesAfterUpdate(self):
         index = _Index(self.tempdir)
         index['id0'] = 1
