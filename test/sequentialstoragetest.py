@@ -1,6 +1,7 @@
 from seecr.test import SeecrTestCase
 
 from os.path import join, isfile
+from time import time
 from random import shuffle
 
 from meresco.sequentialstore import SequentialStorage
@@ -191,3 +192,22 @@ class SequentialStorageTest(SeecrTestCase):
             index['id%s' % i] = bakje[i]
         result = list(index.itervalues())
         self.assertEquals(sorted(result), result)
+
+    def tooBig_testDemonstrateSortedSegmentsOverlap(self):
+        index = _Index("/data/seqstore_gc_perftest/big.index")
+        # for i in xrange(32 * 10 ** 6):
+        #     if i % 10000  == 0:
+        #         print i
+        #         from sys import stdout; stdout.flush()
+        #     index['id%s' % i] = time() * 10 ** 6
+        # index.commit()
+        print index._index.writer.numDocs()
+        from sys import stdout; stdout.flush()
+        lastValue = 0
+        for i, value in enumerate(index.itervalues()):
+            if i % 10000 == 0:
+                print i
+                from sys import stdout; stdout.flush()
+            if value < lastValue:
+                self.fail("value %s < %s" % (value, lastValue))
+            lastValue = value

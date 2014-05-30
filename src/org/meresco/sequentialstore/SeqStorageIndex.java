@@ -50,9 +50,13 @@ import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.AtomicReader;
-
+import org.apache.lucene.index.Terms;
+import org.apache.lucene.index.MultiTerms;
+import org.apache.lucene.index.ReaderSlice;
 import org.apache.lucene.index.sorter.SortingMergePolicy;
 import org.apache.lucene.index.sorter.NumericDocValuesSorter;
+import org.apache.lucene.index.FilterAtomicReader.FilterTerms;
+import org.apache.lucene.index.FilteredTermsEnum;
 
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
@@ -66,9 +70,9 @@ import org.apache.lucene.util.Bits;
 
 
 public class SeqStorageIndex {
-    private FieldType stampType;
-    private IndexWriter writer;
-    private DirectoryReader reader;
+    public FieldType stampType;
+    public IndexWriter writer;
+    public DirectoryReader reader;
     public IndexSearcher searcher;
 
     public SeqStorageIndex(String path) throws IOException {
@@ -95,6 +99,12 @@ public class SeqStorageIndex {
             this.reader.close();
             this.reader = newReader;
             this.searcher = new IndexSearcher(this.reader);
+        }
+    }
+
+    public void commit() throws IOException {
+        if (this.writer != null) {
+            this.writer.commit();
         }
     }
 
@@ -142,40 +152,24 @@ public class SeqStorageIndex {
     }
 
     public PyIterator<Long> itervalues() throws IOException {
-        final Iterator<AtomicReaderContext> leaves = this.reader.leaves().iterator();  // TODO: sort segments by docBase!
+        List<AtomicReaderContext> leaves = this.reader.leaves();
+        ReaderSlice[] readerSlices = new ReaderSlice[leaves.size()];
+        Terms[] terms = new Terms[leaves.size()];
+        for (int i=0; i<leaves.size(); i++) {
+            AtomicReader reader = leaves.get(i).reader();
+            readerSlices[i] = new ReaderSlice(0, reader.maxDoc(), i);
+            terms[i] = new TermsFilteredByLiveDocs(reader.terms("value"), reader.getLiveDocs());
+        }
+        MultiTerms multiTerms = new MultiTerms(terms, readerSlices);
+        final TermsEnum termsEnum = NumericUtils.filterPrefixCodedLongs(multiTerms.iterator(null));
 
         return new PyIterator<Long>() {
-            AtomicReaderContext leaf = null;
-            AtomicReader reader = null;
-            Bits liveDocs = null;
-            TermsEnum termsEnum = null;
-
             public Long next() {
                 try {
                     BytesRef term = null;
-                    while (term == null) {
-                        if (termsEnum != null) {
-                            term = termsEnum.next();
-                        }
-                        if (term == null) {
-                            try {
-                                leaf = leaves.next();
-                            } catch (NoSuchElementException e) {
-                                return null;  // communicate 'StopIteration' to python
-                            }
-                            reader = leaf.reader();
-                            liveDocs = reader.getLiveDocs();
-                            termsEnum = reader.terms("value").iterator(null);
-                            termsEnum = NumericUtils.filterPrefixCodedLongs(termsEnum);
-                            continue;
-                        }
-                        // only keep values for docs that have not been deleted
-                        DocsEnum docsEnum = termsEnum.docs(liveDocs, null, DocsEnum.FLAG_NONE);
-                        int docId = docsEnum.nextDoc();
-                        if (docId == docsEnum.NO_MORE_DOCS) {
-                            term = null;
-                            continue;
-                        }
+                    term = termsEnum.next();
+                    if (term == null) {
+                        return null;
                     }
                     return NumericUtils.prefixCodedToLong(term);
                 } catch (IOException e) {
@@ -188,5 +182,32 @@ public class SeqStorageIndex {
 
     public interface PyIterator<T> {
         public T next();
+    }
+
+
+    class TermsFilteredByLiveDocs extends FilterTerms {
+        Bits liveDocs;
+
+        public TermsFilteredByLiveDocs(Terms terms, Bits liveDocs) {
+            super(terms);
+            this.liveDocs = liveDocs;
+        }
+
+        @Override
+        public TermsEnum iterator(TermsEnum original) throws IOException {
+            final TermsEnum termsEnum = this.in.iterator(null);
+
+            return new FilteredTermsEnum(termsEnum, false) {
+                @Override
+                public AcceptStatus accept(BytesRef term) throws IOException {
+                    DocsEnum docsEnum = termsEnum.docs(TermsFilteredByLiveDocs.this.liveDocs, null, DocsEnum.FLAG_NONE);
+                    int docId = docsEnum.nextDoc();
+                    if (docId == docsEnum.NO_MORE_DOCS) {
+                        return AcceptStatus.NO;
+                    }
+                    return AcceptStatus.YES;
+                }
+            };
+        }
     }
 }

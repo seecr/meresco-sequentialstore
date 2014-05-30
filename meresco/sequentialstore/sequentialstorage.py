@@ -17,7 +17,7 @@ def lazyImport():
     from org.apache.lucene.search import NumericRangeQuery
     from meresco_sequentialstore import initVM as initMerescoSequentialStore
     initMerescoSequentialStore()
-    from org.meresco.sequentialstore import SeqStorageIndex, SeqStoreSortingCollector
+    from org.meresco.sequentialstore import SeqStorageIndex
     globals().update(locals())
 
 def importVM():
@@ -36,12 +36,14 @@ def importVM():
 class SequentialStorage(object):
     version = '1'
 
-    def __init__(self, directory):
+    def __init__(self, directory, commitCount=None):
         self._directory = directory
         self._versionFormatCheck()
         self._index = _Index(join(directory, INDEX_DIR))
         self._seqStorageByNum = _SequentialStorageByNum(join(directory, SEQSTOREBYNUM_NAME))
         self._lastKey = self._seqStorageByNum.lastKey or 0
+        self._commitCount = 0
+        self._maxCommitCount = commitCount or 1000
 
     def add(self, identifier, data):
         self._lastKey += 1
@@ -159,6 +161,9 @@ class _Index(object):
 
     def close(self):
         self._index.close()
+
+    def commit(self):
+        self._index.commit()
 
 
 DELETED_RECORD = object()
