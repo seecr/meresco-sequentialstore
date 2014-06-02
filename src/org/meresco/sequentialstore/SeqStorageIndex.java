@@ -102,6 +102,11 @@ public class SeqStorageIndex {
         }
     }
 
+    public int length() {
+        // Needs (writer.)commit()
+        return this.writer.numDocs();
+    }
+
     public void commit() throws IOException {
         if (this.writer != null) {
             this.writer.commit();
@@ -152,6 +157,7 @@ public class SeqStorageIndex {
     }
 
     public PyIterator<Long> itervalues() throws IOException {
+        // Needs this.reopen()
         List<AtomicReaderContext> leaves = this.reader.leaves();
         ReaderSlice[] readerSlices = new ReaderSlice[leaves.size()];
         Terms[] terms = new Terms[leaves.size()];

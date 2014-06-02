@@ -144,8 +144,14 @@ class _Index(object):
             return default
 
     def itervalues(self):
+        # WARNING: Performance penalty, forcefully reopens reader.
         self._reopen()
         return self._index.itervalues()
+
+    def __len__(self):
+        # WARNING: Performance penalty, commits writer to get an accurate length.
+        self.commit()
+        return self._index.length()
 
     def __delitem__(self, key):
         self._index.delete(key)
