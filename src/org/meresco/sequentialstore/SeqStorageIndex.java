@@ -39,24 +39,25 @@ import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.LongField;
 import org.apache.lucene.document.NumericDocValuesField;
 
+import org.apache.lucene.index.AtomicReader;
 import org.apache.lucene.index.AtomicReaderContext;
 import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.DocsEnum;
+import org.apache.lucene.index.FieldInfo.IndexOptions;
+import org.apache.lucene.index.FilterAtomicReader.FilterTerms;
+import org.apache.lucene.index.FilteredTermsEnum;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.index.DocsEnum;
-import org.apache.lucene.index.TermsEnum;
-import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.index.MergePolicy;
-import org.apache.lucene.index.AtomicReader;
-import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.MultiTerms;
+import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.index.ReaderSlice;
-import org.apache.lucene.index.sorter.SortingMergePolicy;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.index.Terms;
+import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.index.sorter.NumericDocValuesSorter;
-import org.apache.lucene.index.FilterAtomicReader.FilterTerms;
-import org.apache.lucene.index.FilteredTermsEnum;
+import org.apache.lucene.index.sorter.SortingMergePolicy;
 
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
@@ -80,6 +81,7 @@ public class SeqStorageIndex {
         this.stampType.setIndexed(true);
         this.stampType.setStored(false);
         this.stampType.setNumericType(FieldType.NumericType.LONG);
+        this.stampType.setIndexOptions(IndexOptions.DOCS_ONLY);
 
         Directory directory = FSDirectory.open(new File(path));
         IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_43, null);
