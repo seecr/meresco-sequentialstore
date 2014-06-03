@@ -27,6 +27,7 @@ from os.path import getsize, abspath
 from zlib import compress, decompress, error as ZlibError
 from math import ceil
 import operator
+import sys
 
 
 class _SequentialStorageByNum(object):
@@ -106,20 +107,36 @@ class _SequentialStorageByNum(object):
             prev_blk = blk
             prev_key = key
 
-    def copyTo(self, target, keys, skipDataCheck=False):
+    def copyTo(self, target, keys, skipDataCheck=False, verbose=False):
+        def progressMsg(key):
+            msg = '\rIdentifiers (#%s of #%s), NumericKeys (current %s, last %s)' % (count, length if length is not None else 'unknown', key, self.lastKey)
+            sys.stderr.write(msg)
+            sys.stderr.flush()
+
+        length = getattr(keys, 'length', None)
         keys = iter(keys)
         nextKey = next(keys, None)
         if nextKey is None:
             return
         blk = self._blkIndex.search(nextKey)
         self._f.seek(self._blkIndex.offset(blk))
+        count = 0
+        if verbose: sys.stderr.write('Progress:\n')
         while not nextKey is None:
             try:
                 originalKey, data = self._readNext(target_key=nextKey, _keepCompressed=True, _keepCompressedVerifyData=not skipDataCheck)
             except StopIteration:
                 raise RuntimeError('key %s not found.' % nextKey)
+            if verbose:
+                count += 1
+                if count % 2000 == 0:
+                    progressMsg(key=nextKey)
             target.add(nextKey, data, alreadyCompressed=True)
             nextKey = next(keys, None)
+        if verbose:
+            progressMsg(key=originalKey)
+            sys.stderr.write('\n')
+            sys.stderr.flush()
 
     def close(self):
         self._f.close()

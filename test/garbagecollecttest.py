@@ -1,3 +1,6 @@
+from seecr.test import SeecrTestCase
+from seecr.test.io import stderr_replaced
+
 from os import stat, makedirs
 from os.path import join, isfile
 from time import time
@@ -7,7 +10,6 @@ from meresco.sequentialstore.sequentialstorage import INDEX_DIR, SEQSTOREBYNUM_N
 from meresco.sequentialstore.garbagecollect import garbageCollect
 
 from testutils import randomString
-from seecr.test import SeecrTestCase
 
 
 class GarbageCollectTest(SeecrTestCase):
@@ -92,6 +94,41 @@ class GarbageCollectTest(SeecrTestCase):
         self.assertEquals('data99', s['id:99'])
         self.assertTiming(0.01, time() - t0, 0.05)
 
+    def testVerboseWithLargerGC(self):
+        # Too small GC's won't test verbosity
+        directory = join(self.tempdir, 'store')
+        s = SequentialStorage(directory)
+        for i in xrange(2700):
+            s.add('id:%s' % i, 'data%s' % i)
+        for i in xrange(1, 2700, 2):
+            s.add('id:%s' % i, 'rewrite%s' % i)
+        for i in xrange(5, 2700, 5):
+            s.delete('id:%s' % i)
+        self.assertEquals(2161, len(s._index))
+        self.assertRaises(KeyError, lambda: s['id:2695'])
+        self.assertEquals('data2698', s['id:2698'])
+        self.assertEquals('rewrite2699', s['id:2699'])
+        s.close()
+
+        t0 = time()
+        with stderr_replaced() as err:
+            garbageCollect(directory=directory, verbose=True)
+            result = err.getvalue()
+        t1 = time()
+        self.assertEquals('''\
+Progress:
+\rIdentifiers (#2000 of #2161), NumericKeys (current 3849, last 4050)\
+\rIdentifiers (#2161 of #2161), NumericKeys (current 4050, last 4050)
+Finished garbage-collecting SequentialStorage.''', result)
+
+        s = SequentialStorage(directory)
+        self.assertEquals(2161, len(s._index))
+        self.assertRaises(KeyError, lambda: s['id:2695'])
+        self.assertEquals('data2698', s['id:2698'])
+        self.assertEquals('rewrite2699', s['id:2699'])
+
+        self.assertTiming(0.10, t1 - t0, 0.50)
+
     def SKIP_testPerformance(self):
         data = randomString(200)
         directory = join(self.tempdir, 'store')
@@ -116,7 +153,6 @@ class GarbageCollectTest(SeecrTestCase):
         print time() - t0
         self.assertTiming(0.2, time() - t0, 0.5)
 
-    #def testRatherLargeSequentialStorage(self):
     def TAKES_ABOUT_15_MINUTES_testRatherLargeSequentialStorage(self):
         print 'Needs 210MB'
         from sys import stdout; stdout.flush()

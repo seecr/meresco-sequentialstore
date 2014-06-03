@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     if not len(args) == 1:
         print "Usage: %s [--verbose] [--skip-data-check] <directory>" % argv[0]
-        print "    --verbose          Print progress info (not yet);"
+        print "    --verbose          Print progress info;"
         print "    --skip-data-check  Faster, but does not deal with all potential corruption."
         exit(1)
 

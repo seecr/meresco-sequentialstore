@@ -1,6 +1,7 @@
 from os import getenv, makedirs, listdir, rename, remove
-from warnings import warn
 from os.path import join, isdir, isfile
+from warnings import warn
+import sys
 
 from _sequentialstoragebynum import _SequentialStorageByNum
 
@@ -89,10 +90,13 @@ class SequentialStorage(object):
             remove(tmpSeqStoreFile)
         tmpSequentialStorageByNum = _SequentialStorageByNum(tmpSeqStoreFile)
         existingNumKeys = s._index.itervalues()
-        s._seqStorageByNum.copyTo(target=tmpSequentialStorageByNum, keys=existingNumKeys, skipDataCheck=skipDataCheck)
+        s._seqStorageByNum.copyTo(target=tmpSequentialStorageByNum, keys=existingNumKeys, skipDataCheck=skipDataCheck, verbose=verbose)
         s.close()
         tmpSequentialStorageByNum.close()
         rename(tmpSeqStoreFile, join(directory, 'seqstore'))
+        if verbose:
+            sys.stderr.write('Finished garbage-collecting SequentialStorage.')
+            sys.stderr.flush()
 
     def close(self):
         if not getattr(self, '_seqStorageByNum', None) is None:
@@ -146,7 +150,18 @@ class _Index(object):
     def itervalues(self):
         # WARNING: Performance penalty, forcefully reopens reader.
         self._reopen()
-        return self._index.itervalues()
+        iterable = self._index.itervalues()
+        class IterableWithLength(object):
+            def __init__(inner):
+                inner.length = len(self)
+
+            def __iter__(inner):
+                return iterable
+
+            def __len__(inner):
+                return inner.length
+
+        return IterableWithLength()
 
     def __len__(self):
         # WARNING: Performance penalty, commits writer to get an accurate length.
