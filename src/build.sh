@@ -1,3 +1,28 @@
+## begin license ##
+#
+# "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
+#
+# Copyright (C) 2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
+#
+# This file is part of "Meresco SequentialStore"
+#
+# "Meresco SequentialStore" is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# "Meresco SequentialStore" is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with "Meresco SequentialStore"; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+#
+## end license ##
+
 set -o errexit
 
 mydir=$(cd $(dirname $0); pwd)
@@ -17,7 +42,7 @@ if [ -f /etc/debian_version ]; then
     luceneJarDir=/usr/lib/python2.7/dist-packages/lucene
 fi
 
-classpath=${luceneJarDir}/lucene-core-4.3.0.jar:${luceneJarDir}/lucene-analyzers-common-4.3.0.jar:${luceneJarDir}/lucene-facet-4.3.0.jar:${luceneJarDir}/lucene-queries-4.3.0.jar:${luceneJarDir}/lucene-misc-4.3.0.jar
+classpath=${luceneJarDir}/lucene-core-4.8.0.jar:${luceneJarDir}/lucene-analyzers-common-4.8.0.jar:${luceneJarDir}/lucene-facet-4.8.0.jar:${luceneJarDir}/lucene-queries-4.8.0.jar:${luceneJarDir}/lucene-misc-4.8.0.jar
 
 javac -cp ${classpath} -d ${buildDir} org/meresco/sequentialstore/*.java
 (cd $buildDir; jar -c org > $buildDir/meresco-sequentialstore.jar)

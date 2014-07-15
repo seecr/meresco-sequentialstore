@@ -56,12 +56,13 @@ import org.apache.lucene.index.ReaderSlice;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
-import org.apache.lucene.index.sorter.NumericDocValuesSorter;
 import org.apache.lucene.index.sorter.SortingMergePolicy;
 
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.IndexSearcher;
 
 import org.apache.lucene.util.Version;
@@ -88,7 +89,7 @@ public class SeqStorageIndex {
         config.setRAMBufferSizeMB(256.0);  // faster
         //config.setUseCompoundFile(false);  // faster, for Lucene 4.4 and later
         MergePolicy mergePolicy = config.getMergePolicy();
-        MergePolicy sortingMergePolicy = new SortingMergePolicy(mergePolicy, new NumericDocValuesSorter("value", true));
+        MergePolicy sortingMergePolicy = new SortingMergePolicy(mergePolicy, new Sort(new SortField("value", SortField.Type.LONG)));
         config.setMergePolicy(sortingMergePolicy);
         this.writer = new IndexWriter(directory, config);
         this.reader = DirectoryReader.open(this.writer, true);
