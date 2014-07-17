@@ -47,7 +47,7 @@ if [ -f /etc/debian_version ]; then
     luceneJarDir=/usr/lib/python2.7/dist-packages/lucene
 fi
 
-classpath=${luceneJarDir}/lucene-core-4.3.0.jar:${luceneJarDir}/lucene-analyzers-common-4.3.0.jar:${luceneJarDir}/lucene-facet-4.3.0.jar:${luceneJarDir}/lucene-queries-4.3.0.jar:${luceneJarDir}/lucene-misc-4.3.0.jar
+classpath=${luceneJarDir}/lucene-core-4.8.0.jar:${luceneJarDir}/lucene-analyzers-common-4.8.0.jar:${luceneJarDir}/lucene-facet-4.8.0.jar:${luceneJarDir}/lucene-queries-4.8.0.jar:${luceneJarDir}/lucene-misc-4.8.0.jar
 
 javac -cp ${classpath} -d ${buildDir} org/meresco/sequentialstore/*.java
 (cd $buildDir; jar -c org > $buildDir/meresco-sequentialstore.jar)
