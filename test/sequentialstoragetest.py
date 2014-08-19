@@ -26,11 +26,11 @@
 from seecr.test import SeecrTestCase
 
 from os.path import join, isfile
-from time import time, sleep
 from random import shuffle
 
 from meresco.sequentialstore import SequentialStorage
 from meresco.sequentialstore.sequentialstorage import _Index
+from subprocess import Popen, PIPE
 
 
 class SequentialStorageTest(SeecrTestCase):
@@ -124,7 +124,8 @@ class SequentialStorageTest(SeecrTestCase):
         seqStorageFileName = sequentialStorage._seqStorageByNum._f.name
         sequentialStorage.close()
         self.assertEquals('----\n1\n9\nx\x9c3\x04\x00\x002\x002\n', open(seqStorageFileName).read())
-        self.assertFalse(isfile(lockFile))
+        stdout, stderr = Popen("lsof -n %s" % lockFile, stdout=PIPE, stderr=PIPE, shell=True).communicate()
+        self.assertEquals('', stdout.strip())
         self.assertRaises(AttributeError, lambda: sequentialStorage.add('def', data='2'))
 
     def testGet(self):
