@@ -37,7 +37,6 @@ def lazyImport():
     if imported:
         return
     imported = True
-    importVM()
     from java.lang import Long
     from java.io import File
     from org.apache.lucene.search import NumericRangeQuery
@@ -57,6 +56,7 @@ def importVM():
     except ValueError:
         VM = getVMEnv()
     return VM
+importVM()
 
 
 class SequentialStorage(object):
