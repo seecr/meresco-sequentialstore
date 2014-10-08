@@ -131,7 +131,7 @@ class _SequentialStorageByNum(object):
                 count += 1
                 if count % 2000 == 0:
                     progressMsg(key=nextKey)
-            target.add(nextKey, data, alreadyCompressed=True)
+            target.add(key=nextKey, data=data, alreadyCompressed=True)
             nextKey = next(keys, None)
         if verbose:
             progressMsg(key=originalKey)
