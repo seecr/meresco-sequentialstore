@@ -104,6 +104,9 @@ class SequentialStorage(object):
         result = self._seqStorageByNum.getMultiple(keys=sorted(keys2Identifiers.keys()), ignoreMissing=ignoreMissing)
         return ((keys2Identifiers.get(key), data) for key, data in result)
 
+    def copyTo(self, target, skipDataCheck=False, verbose=False):
+        self._seqStorageByNum.copyTo(target=target, keys=self._index.itervalues(), skipDataCheck=skipDataCheck, verbose=verbose)
+
     @classmethod
     def gc(cls, directory, skipDataCheck=False, verbose=False):
         """Works only for closed SequentialStorage for now."""
@@ -114,8 +117,7 @@ class SequentialStorage(object):
         if isfile(tmpSeqStoreFile):
             remove(tmpSeqStoreFile)
         tmpSequentialStorageByNum = _SequentialStorageByNum(tmpSeqStoreFile)
-        existingNumKeys = s._index.itervalues()
-        s._seqStorageByNum.copyTo(target=tmpSequentialStorageByNum, keys=existingNumKeys, skipDataCheck=skipDataCheck, verbose=verbose)
+        s.copyTo(tmpSequentialStorageByNum, skipDataCheck=skipDataCheck, verbose=verbose)
         s.close()
         tmpSequentialStorageByNum.close()
         rename(tmpSeqStoreFile, join(directory, 'seqstore'))

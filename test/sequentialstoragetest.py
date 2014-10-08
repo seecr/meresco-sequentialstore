@@ -23,7 +23,7 @@
 #
 ## end license ##
 
-from seecr.test import SeecrTestCase
+from seecr.test import SeecrTestCase, CallTrace
 
 from os.path import join, isfile
 from random import shuffle
@@ -255,3 +255,13 @@ class SequentialStorageTest(SeecrTestCase):
             if value < lastValue:
                 self.fail("value %s < %s" % (value, lastValue))
             lastValue = value
+
+    def testCopyTo(self):
+        sequentialStorage = SequentialStorage(self.tempdir)
+        sequentialStorage.add(identifier='abc', data="1")
+        sequentialStorage.add(identifier='def', data="2")
+
+        copyTarget = CallTrace()
+        sequentialStorage.copyTo(target=copyTarget)
+
+        self.assertEquals(['add', 'add'], copyTarget.calledMethodNames())
