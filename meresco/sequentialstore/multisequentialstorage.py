@@ -25,7 +25,7 @@
 
 from os.path import join, isdir
 from os import listdir, makedirs
-from escaping import escapeFilename
+from escaping import escapeFilename, unescapeFilename
 
 from sequentialstorage import SequentialStorage
 
@@ -37,13 +37,13 @@ class MultiSequentialStorage(object):
         isdir(self._directory) or makedirs(self._directory)
         self._storage = {}
         for name in listdir(directory):
-            self._getStorage(name)
+            self._getStorage(unescapeFilename(name))
 
     def observable_name(self):
         return self._name
 
     def addData(self, identifier, name, data):
-        self._getStorage(name).add(identifier, data)
+        self._getStorage(name, mayCreate=True).add(identifier, data)
 
     def deleteData(self, identifier, name=None):
         if name is None:
@@ -56,7 +56,13 @@ class MultiSequentialStorage(object):
         return self._getStorage(name)[identifier]
 
     def getMultipleData(self, name, identifiers, ignoreMissing=False):
-        return self._getStorage(name).getMultiple(identifiers, ignoreMissing=ignoreMissing)
+        try:
+            storage = self._getStorage(name)
+        except KeyError:
+            if ignoreMissing:
+                return []
+            raise
+        return storage.getMultiple(identifiers, ignoreMissing=ignoreMissing)
 
     def handleShutdown(self):
         print 'handle shutdown: saving MultiSequentialStorage %s' % self._directory
@@ -67,9 +73,12 @@ class MultiSequentialStorage(object):
         for storage in self._storage.itervalues():
             storage.close()
 
-    def _getStorage(self, name):
+    def _getStorage(self, name, mayCreate=False):
         storage = self._storage.get(name)
         if not storage:
-            name = escapeFilename(name)
-            self._storage[name] = storage = SequentialStorage(join(self._directory, name))
+            directory = join(self._directory, escapeFilename(name))
+            if isdir(directory) or mayCreate:
+                self._storage[name] = storage = SequentialStorage(directory)
+            else:
+                raise KeyError(name)
         return storage

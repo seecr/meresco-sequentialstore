@@ -86,6 +86,12 @@ class MultiSequentialStorageTest(SeecrTestCase):
             list(s.getMultipleData("na", ['42']))
             self.fail()
         except KeyError, e:
+            self.assertEquals("'na'", str(e))
+        s.addData(identifier='1', name='na', data='ignored')
+        try:
+            list(s.getMultipleData("na", ['42']))
+            self.fail()
+        except KeyError, e:
             self.assertEquals("'42'", str(e))
 
     def testGetMultipleDataIgnoreMissingKeysWithFlag(self):
@@ -101,7 +107,7 @@ class MultiSequentialStorageTest(SeecrTestCase):
 
     def testPartNameEscaping(self):
         s = MultiSequentialStorage(self.tempdir)
-        s.addData('2', "ma/am", "data")
+        s.addData(identifier='2', name="ma/am", data="data")
         s.close()
         s = MultiSequentialStorage(self.tempdir)
         self.assertEquals("data", s.getData('2', "ma/am"))
