@@ -42,15 +42,17 @@ mkdir $buildDir
 rm -rf $libDir
 mkdir -p $libDir
 
+javac=/usr/lib/jvm/java-1.7.0-openjdk.x86_64/bin/javac
 luceneJarDir=/usr/lib64/python2.6/site-packages/lucene
 if [ -f /etc/debian_version ]; then
+    javac=/usr/lib/jvm/java-7-openjdk-amd64/bin/javac
     luceneJarDir=/usr/lib/python2.7/dist-packages/lucene
 fi
 
 LUCENE_VERSION=4.10.1
 classpath=${luceneJarDir}/lucene-core-${LUCENE_VERSION}.jar:${luceneJarDir}/lucene-analyzers-common-${LUCENE_VERSION}.jar:${luceneJarDir}/lucene-facet-${LUCENE_VERSION}.jar:${luceneJarDir}/lucene-queries-${LUCENE_VERSION}.jar:${luceneJarDir}/lucene-misc-${LUCENE_VERSION}.jar
 
-javac -cp ${classpath} -d ${buildDir} org/meresco/sequentialstore/*.java
+${javac} -cp ${classpath} -d ${buildDir} org/meresco/sequentialstore/*.java
 (cd $buildDir; jar -c org > $buildDir/meresco-sequentialstore.jar)
 
 python -m jcc.__main__ \
