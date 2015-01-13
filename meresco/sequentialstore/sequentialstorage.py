@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2015 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -23,9 +23,8 @@
 #
 ## end license ##
 
-from os import getenv, makedirs, listdir, rename, remove
+from os import makedirs, listdir, rename, remove
 from os.path import join, isdir, isfile
-from warnings import warn
 import sys
 
 from _sequentialstoragebynum import _SequentialStorageByNum
@@ -45,19 +44,8 @@ def lazyImport():
     from org.meresco.sequentialstore import SeqStorageIndex
     globals().update(locals())
 
-def importVM():
-    maxheap = getenv('PYLUCENE_MAXHEAP')
-    if not maxheap:
-        maxheap = '4g'
-        warn("Using '4g' as maxheap for lucene.initVM(). To override use PYLUCENE_MAXHEAP environment variable.")
-    from lucene import initVM, getVMEnv
-    try:
-        VM = initVM(maxheap=maxheap)#, vmargs='-agentlib:hprof=heap=sites')
-    except ValueError:
-        VM = getVMEnv()
-    return VM
-importVM()
-
+from meresco.pylucene import getJVM
+VM = getJVM()
 
 class SequentialStorage(object):
     version = '1'
