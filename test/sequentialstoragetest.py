@@ -123,7 +123,7 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertTrue(isfile(lockFile))
         seqStorageFileName = sequentialStorage._seqStorageByNum._f.name
         sequentialStorage.close()
-        self.assertEquals('----\n1\n9\nx\x9c3\x04\x00\x002\x002\n', open(seqStorageFileName).read())
+        self.assertEquals('----\n1\n14\nx\x9c\xd3NLJ\xe62\x04\x00\x05\xe3\x01\x8d\n', open(seqStorageFileName).read())
         stdout, stderr = Popen("lsof -n %s" % lockFile, stdout=PIPE, stderr=PIPE, shell=True).communicate()
         self.assertEquals('', stdout.strip())
         self.assertRaises(AttributeError, lambda: sequentialStorage.add('def', data='2'))

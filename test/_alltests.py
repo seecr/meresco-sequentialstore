@@ -46,7 +46,6 @@ from sequentialstoragebynumtest import SequentialStorageByNumTest
 from sequentialstoragetest import SequentialStorageTest
 from multisequentialstoragetest import MultiSequentialStorageTest
 from storagecomponentadaptertest import StorageComponentAdapterTest
-from convertseqstoreoaitov1test import ConvertSeqstoreOAItov1Test
 
 if __name__ == '__main__':
     unittest.main()

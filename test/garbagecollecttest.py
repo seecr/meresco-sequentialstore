@@ -60,7 +60,7 @@ class GarbageCollectTest(SeecrTestCase):
         self.assertTrue(newFileSize < filesize)
 
         s = SequentialStorage(directory)
-        self.assertEquals([(3, 'data3'), (4, 'data4')], list(s._seqStorageByNum.range()))
+        self.assertEquals([(3, '+id:3\ndata3'), (4, '+id:1\ndata4')], list(s._seqStorageByNum.range()))
 
         self.assertEquals('data4', s['id:1'])
         self.assertRaises(KeyError, lambda: s['id:2'])
@@ -98,7 +98,7 @@ class GarbageCollectTest(SeecrTestCase):
         self.assertEquals(newFileSize, filesizeBefore)
 
         s = SequentialStorage(directory)
-        self.assertEquals([(1, 'data1'), (2, 'data2')], list(s._seqStorageByNum.range()))
+        self.assertEquals([(1, '+id:1\ndata1'), (2, '+id:2\ndata2')], list(s._seqStorageByNum.range()))
 
     def testLargerSequentialStorage(self):
         directory = join(self.tempdir, 'store')
@@ -142,8 +142,8 @@ class GarbageCollectTest(SeecrTestCase):
         t1 = time()
         self.assertEquals('''\
 Progress:
-\rIdentifiers (#2000 of #2161), NumericKeys (current 3849, last 4050)\
-\rIdentifiers (#2161 of #2161), NumericKeys (current 4050, last 4050)
+\rIdentifiers (#2000 of #2161), NumericKeys (current 3849, last 4589)\
+\rIdentifiers (#2161 of #2161), NumericKeys (current 4050, last 4589)
 Finished garbage-collecting SequentialStorage.''', result)
 
         s = SequentialStorage(directory)

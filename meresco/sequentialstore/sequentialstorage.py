@@ -71,15 +71,22 @@ class SequentialStorage(object):
     def add(self, identifier, data):
         self._lastKey += 1
         key = self._lastKey
+        data = self._wrap(identifier, data)
         self._seqStorageByNum.add(key=key, data=data)
         self._index[str(identifier)] = key  # only after actually writing data
 
     def delete(self, identifier):
+        self._lastKey += 1
+        key = self._lastKey
+        data = self._wrap(identifier, delete=True)
+        self._seqStorageByNum.add(key=key, data=data)
         del self._index[str(identifier)]
 
     def __getitem__(self, identifier):
         key = self._index[str(identifier)]
-        return self._seqStorageByNum[key]
+        data = self._seqStorageByNum[key]
+        identifier, data, delete = self._unwrap(data)
+        return data
 
     def get(self, identifier, default=None):
         try:
@@ -99,7 +106,7 @@ class SequentialStorage(object):
             else:
                 keys2Identifiers[key] = identifier
         result = self._seqStorageByNum.getMultiple(keys=sorted(keys2Identifiers.keys()), ignoreMissing=ignoreMissing)
-        return ((keys2Identifiers.get(key), data) for key, data in result)
+        return ((keys2Identifiers.get(key), self._unwrap(data)[1]) for key, data in result)
 
     def copyTo(self, target, skipDataCheck=False, verbose=False):
         self._seqStorageByNum.copyTo(target=target, keys=self._index.itervalues(), skipDataCheck=skipDataCheck, verbose=verbose)
@@ -129,6 +136,15 @@ class SequentialStorage(object):
         if not getattr(self, '_index', None) is None:
             self._index.close()
             self._index = None
+
+    def _wrap(self, identifier, data=None, delete=False):
+        return "%s%s\n%s" % ("-" if delete else "+", identifier, data or '')
+
+    def _unwrap(self, data):
+        header, data = data.split('\n', 1)
+        delete = header[0] == '-'
+        identifier = header[1:]
+        return identifier, data, delete
 
     def _versionFormatCheck(self):
         versionFile = join(self._directory, "sequentialstorage.version")
