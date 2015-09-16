@@ -137,7 +137,7 @@ class SequentialStorageTest(SeecrTestCase):
     def testVersionWritten(self):
         SequentialStorage(self.tempdir)
         version = open(join(self.tempdir, "sequentialstorage.version")).read()
-        self.assertEquals(SequentialStorage.version, version)
+        self.assertEquals('2', version)
 
     def testRefuseInitWithNoVersionFile(self):
         open(join(self.tempdir, 'x'), 'w').close()

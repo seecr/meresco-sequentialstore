@@ -75,7 +75,7 @@ class GarbageCollectTest(SeecrTestCase):
         open(join(self.tempdir, SEQSTOREBYNUM_NAME), 'w').close()
         self.assertRaises(AssertionError, lambda: garbageCollect(join(self.tempdir)))
 
-        open(join(self.tempdir, 'sequentialstorage.version'), 'w').write('1')
+        open(join(self.tempdir, 'sequentialstorage.version'), 'w').write('2')
         garbageCollect(join(self.tempdir))
 
     def testDontAppendOnPreviousInterruptedGC(self):

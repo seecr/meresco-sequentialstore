@@ -32,8 +32,6 @@ from random import random
 from time import time
 from itertools import islice
 
-from zlib import decompress
-
 from weightless.core import consume
 
 from meresco.sequentialstore._sequentialstoragebynum import _SequentialStorageByNum, SENTINEL, DEFAULT_BLOCK_SIZE
@@ -605,7 +603,7 @@ class SequentialStorageByNumTest(SeecrTestCase):
             f.truncate(filesize - 2)  # corrupt data for 2nd record
         s = _SequentialStorageByNum(self.tempfile)
         s.add(2, 'data again')
-        
+
         target = _SequentialStorageByNum(join(self.tempdir, 'target'))
         s.copyTo(target=target, keys=[1, 2], skipDataCheck=False)
         self.assertEquals([(1, data), (2, 'data again')], list(target.range()))
@@ -622,7 +620,7 @@ class SequentialStorageByNumTest(SeecrTestCase):
         self.assertEquals(filesize - 2, stat(self.tempfile).st_size)
         s = _SequentialStorageByNum(self.tempfile)
         s.add(2, 'data again')
-        
+
         target = _SequentialStorageByNum(join(self.tempdir, 'target'))
         s.copyTo(target=target, keys=[1, 2], skipDataCheck=True)
         self.assertEquals([(1, data)], list(target.range()))

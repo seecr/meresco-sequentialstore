@@ -37,9 +37,6 @@ def lazyImport():
     if imported:
         return
     imported = True
-    from java.lang import Long
-    from java.io import File
-    from org.apache.lucene.search import NumericRangeQuery
     from meresco_sequentialstore import initVM as initMerescoSequentialStore
     initMerescoSequentialStore()
     from org.meresco.sequentialstore import SeqStorageIndex
@@ -60,7 +57,7 @@ importVM()
 
 
 class SequentialStorage(object):
-    version = '1'
+    version = '2'
 
     def __init__(self, directory, commitCount=None):
         self._directory = directory
