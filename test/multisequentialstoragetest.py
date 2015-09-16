@@ -133,3 +133,11 @@ class MultiSequentialStorageTest(SeecrTestCase):
         self.assertRaises(KeyError, lambda: s.getData('2', 'part1'))
         self.assertRaises(KeyError, lambda: s.getData('2', 'part2'))
 
+    def testCommit(self):
+        s = MultiSequentialStorage(self.tempdir)
+        s.addData('2', "part1", "data1")
+        s.commit()
+        s._storage['part1']._index.close()
+
+        s = MultiSequentialStorage(self.tempdir)
+        self.assertEquals('data1', s.getData('2', 'part1'))

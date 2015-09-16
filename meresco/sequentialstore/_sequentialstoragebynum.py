@@ -66,7 +66,6 @@ class _SequentialStorageByNum(object):
         return data
 
     def range(self, start=0, stop=None, inclusive=False):
-        # Use _keepCompressed only internally, breaks recovery logic and abstractions.
         stop = stop or LARGER_THAN_ANY_KEY
         _intcheck(start); _intcheck(stop)
         cmp = operator.le if inclusive else operator.lt

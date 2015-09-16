@@ -74,6 +74,10 @@ class MultiSequentialStorage(object):
         for storage in self._storage.itervalues():
             storage.close()
 
+    def commit(self):
+        for storage in self._storage.itervalues():
+            storage.commit()
+
     def _getStorage(self, name, mayCreate=False):
         storage = self._storage.get(name)
         if not storage:

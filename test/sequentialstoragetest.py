@@ -23,14 +23,15 @@
 #
 ## end license ##
 
-from seecr.test import SeecrTestCase, CallTrace
-
 from os.path import join, isfile
 from random import shuffle
+from subprocess import Popen, PIPE
+from shutil import rmtree
+
+from seecr.test import SeecrTestCase, CallTrace
 
 from meresco.sequentialstore import SequentialStorage
-from meresco.sequentialstore.sequentialstorage import _Index
-from subprocess import Popen, PIPE
+from meresco.sequentialstore.sequentialstorage import _Index, INDEX_DIR
 
 
 class SequentialStorageTest(SeecrTestCase):
@@ -172,6 +173,13 @@ class SequentialStorageTest(SeecrTestCase):
         except Exception, e:
             self.assertTrue(repr(e).startswith('JavaError(<Throwable: org.apache.lucene.store.LockObtainFailedException: Lock obtain timed out: NativeFSLock'), e)
 
+    def testIndexIterKeys(self):
+        index = _Index(self.tempdir)
+        index['id0'] = 1
+        index['id1'] = 8
+        keys = list(index.iterkeys())
+        self.assertEquals(['id0', 'id1'], keys)
+
     def testIndexIterValues(self):
         index = _Index(self.tempdir)
         index['id0'] = 1
@@ -265,3 +273,16 @@ class SequentialStorageTest(SeecrTestCase):
         sequentialStorage.copyTo(target=copyTarget)
 
         self.assertEquals(['add', 'add'], copyTarget.calledMethodNames())
+
+    def testRecoverIndexFromDataInCaseIndexDirRemoved(self):
+        sequentialStorage = SequentialStorage(self.tempdir)
+        sequentialStorage.add(identifier='abc', data="1")
+        sequentialStorage.add(identifier='def', data="2")
+        sequentialStorage.delete(identifier='abc')
+        sequentialStorage.close()
+
+        rmtree(join(self.tempdir, INDEX_DIR))
+
+        sequentialStorage = SequentialStorage(self.tempdir)
+        self.assertRaises(KeyError, lambda: sequentialStorage['abc'])
+        self.assertEquals('2', sequentialStorage['def'])

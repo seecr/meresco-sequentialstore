@@ -167,6 +167,35 @@ public class SeqStorageIndex {
         return -1;
     }
 
+    public PyIterator<String> iterkeys() throws IOException {
+        // Needs this.reopen()
+        List<AtomicReaderContext> leaves = this.reader.leaves();
+        ReaderSlice[] readerSlices = new ReaderSlice[leaves.size()];
+        Terms[] terms = new Terms[leaves.size()];
+        for (int i=0; i<leaves.size(); i++) {
+            AtomicReader reader = leaves.get(i).reader();
+            readerSlices[i] = new ReaderSlice(0, reader.maxDoc(), i);
+            terms[i] = new TermsFilteredByLiveDocs(reader.terms("key"), reader.getLiveDocs());
+        }
+        MultiTerms multiTerms = new MultiTerms(terms, readerSlices);
+        final TermsEnum termsEnum = multiTerms.iterator(null);
+
+        return new PyIterator<String>() {
+            public String next() {
+                try {
+                    BytesRef term = null;
+                    term = termsEnum.next();
+                    if (term == null) {
+                        return null;
+                    }
+                    return term.utf8ToString();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
+    }
+
     public PyIterator<Long> itervalues() throws IOException {
         // Needs this.reopen()
         List<AtomicReaderContext> leaves = this.reader.leaves();
@@ -195,7 +224,6 @@ public class SeqStorageIndex {
             }
         };
     }
-
 
     public interface PyIterator<T> {
         public T next();

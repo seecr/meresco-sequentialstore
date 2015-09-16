@@ -23,10 +23,11 @@
 #
 ## end license ##
 
+import sys
 from os import getenv, makedirs, listdir, rename, remove
 from os.path import join, isdir, isfile
+from shutil import rmtree
 from warnings import warn
-import sys
 
 from _sequentialstoragebynum import _SequentialStorageByNum
 
@@ -62,8 +63,12 @@ class SequentialStorage(object):
     def __init__(self, directory, commitCount=None):
         self._directory = directory
         self._versionFormatCheck()
-        self._index = _Index(join(directory, INDEX_DIR))
-        self._seqStorageByNum = _SequentialStorageByNum(join(directory, SEQSTOREBYNUM_NAME))
+        indexDir = join(directory, INDEX_DIR)
+        seqStoreByNumFileName = join(directory, SEQSTOREBYNUM_NAME)
+        if isfile(seqStoreByNumFileName) and not isdir(indexDir):
+            self.recoverIndexFromData(directory, verbose=True)
+        self._index = _Index(indexDir)
+        self._seqStorageByNum = _SequentialStorageByNum(seqStoreByNumFileName)
         self._lastKey = self._seqStorageByNum.lastKey or 0
         self._commitCount = 0
         self._maxCommitCount = commitCount or 1000
@@ -130,17 +135,45 @@ class SequentialStorage(object):
             sys.stderr.flush()
 
     def close(self):
-        if not getattr(self, '_seqStorageByNum', None) is None:
-            self._seqStorageByNum.close()
-            self._seqStorageByNum = None
-        if not getattr(self, '_index', None) is None:
-            self._index.close()
-            self._index = None
+        self._seqStorageByNum.close()
+        self._seqStorageByNum = None
+        self._index.close()
+        self._index = None
 
-    def _wrap(self, identifier, data=None, delete=False):
+    def commit(self):
+        self._seqStorageByNum.flush()
+        self._index.commit()
+
+    @classmethod
+    def recoverIndexFromData(cls, directory, verbose=False):
+        indexDir = join(directory, INDEX_DIR)
+        assert not isdir(indexDir), "To allow for recovery, the index directory '%s' should be removed first." % indexDir
+        tmpIndexDir = join(directory, INDEX_DIR + '.tmp')
+        if isdir(tmpIndexDir):
+            rmtree(tmpIndexDir)
+        index = _Index(tmpIndexDir)
+        seqStorageByNum = _SequentialStorageByNum(join(directory, SEQSTOREBYNUM_NAME))
+        count = 0
+        for key, data in seqStorageByNum.range():
+            count += 1
+            if verbose and count % 2000 == 0:
+                sys.stderr.write('\rRecovered %s items, current key: %s, last key: %s' % (count, key, seqStorageByNum.lastKey))
+                sys.stderr.flush()
+            identifier, data, delete = cls._unwrap(data)
+            identifier = str(identifier)
+            if delete:
+                del index[identifier]
+            else:
+                index[identifier] = key
+        index.close()
+        rename(tmpIndexDir, indexDir)
+
+    @staticmethod
+    def _wrap(identifier, data=None, delete=False):
         return "%s%s\n%s" % ("-" if delete else "+", identifier, data or '')
 
-    def _unwrap(self, data):
+    @staticmethod
+    def _unwrap(data):
         header, data = data.split('\n', 1)
         delete = header[0] == '-'
         identifier = header[1:]
@@ -187,21 +220,15 @@ class _Index(object):
         except KeyError:
             return default
 
+    def iterkeys(self):
+        # WARNING: Performance penalty, forcefully reopens reader.
+        self._reopen()
+        return _IterableWithLength(self._index.iterkeys(), len(self))
+
     def itervalues(self):
         # WARNING: Performance penalty, forcefully reopens reader.
         self._reopen()
-        iterable = self._index.itervalues()
-        class IterableWithLength(object):
-            def __init__(inner):
-                inner.length = len(self)
-
-            def __iter__(inner):
-                return iterable
-
-            def __len__(inner):
-                return inner.length
-
-        return IterableWithLength()
+        return _IterableWithLength(self._index.itervalues(), len(self))
 
     def __len__(self):
         # WARNING: Performance penalty, commits writer to get an accurate length.
@@ -225,6 +252,18 @@ class _Index(object):
 
     def commit(self):
         self._index.commit()
+
+
+class _IterableWithLength(object):
+    def __init__(self, iterable, length):
+        self.iterable = iterable
+        self.length = length
+
+    def __iter__(self):
+        return self.iterable
+
+    def __len__(self):
+        return self.length
 
 
 DELETED_RECORD = object()
