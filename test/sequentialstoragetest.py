@@ -2,8 +2,9 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2015 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
+# Copyright (C) 2015 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
 #
 # This file is part of "Meresco SequentialStore"
 #
@@ -39,6 +40,11 @@ class SequentialStorageTest(SeecrTestCase):
         sequentialStorage = SequentialStorage(self.tempdir)
         sequentialStorage.add(identifier='abc', data="1")
         self.assertEquals("1", sequentialStorage['abc'])
+
+    def testAddWithNewlineInIdentifierRaisesValueError(self):
+        sequentialStorage = SequentialStorage(self.tempdir)
+        self.assertRaises(ValueError, lambda: sequentialStorage.add(identifier='abc\ndef', data="1"))
+        sequentialStorage.add(identifier='abc def', data="1")  # other characters, such as spaces, no problem
 
     def testKeyErrorForUnknownKey(self):
         sequentialStorage = SequentialStorage(self.tempdir)

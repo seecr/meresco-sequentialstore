@@ -2,8 +2,9 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2015 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
+# Copyright (C) 2015 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
 #
 # This file is part of "Meresco SequentialStore"
 #
@@ -170,6 +171,8 @@ class SequentialStorage(object):
 
     @staticmethod
     def _wrap(identifier, data=None, delete=False):
+        if '\n' in identifier:
+            raise ValueError("'\\n' not allowed in identifier " + repr(identifier))
         return "%s%s\n%s" % ("-" if delete else "+", identifier, data or '')
 
     @staticmethod
