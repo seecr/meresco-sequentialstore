@@ -29,8 +29,8 @@ from seecrdeps import includeParentAndDeps       #DO_NOT_DISTRIBUTE
 includeParentAndDeps(__file__)                   #DO_NOT_DISTRIBUTE
 
 from sys import argv
-from os import rename
-from os.path import join
+from os import rename, remove
+from os.path import join, isfile
 
 from meresco.sequentialstore._sequentialstoragebynum import _SequentialStorageByNum
 from meresco.sequentialstore.sequentialstorage import _Index, INDEX_DIR, SEQSTOREBYNUM_NAME
@@ -44,6 +44,8 @@ def convert(directory):
     oldSeqStoreByNumFileName = join(directory, SEQSTOREBYNUM_NAME)
     oldSeqStoreByNum = _SequentialStorageByNum(oldSeqStoreByNumFileName)
     newSeqStoreByNumFileName = join(directory, SEQSTOREBYNUM_NAME + '.tmp')
+    if isfile(newSeqStoreByNumFileName):
+        remove(newSeqStoreByNumFileName)
     newSeqStoreByNum = _SequentialStorageByNum(newSeqStoreByNumFileName)
 
     for identifier in index.iterkeys():
