@@ -28,7 +28,7 @@
 from seecrdeps import includeParentAndDeps       #DO_NOT_DISTRIBUTE
 includeParentAndDeps(__file__)                   #DO_NOT_DISTRIBUTE
 
-from sys import argv
+from sys import argv, stdout
 from os import rename, remove
 from os.path import join, isfile
 
@@ -48,19 +48,34 @@ def convert(directory):
         remove(newSeqStoreByNumFileName)
     newSeqStoreByNum = _SequentialStorageByNum(newSeqStoreByNumFileName)
 
-    for identifier in index.iterkeys():
+    keyIndentifiers = []
+    identifiers = index.iterkeys()
+    print 'Collecting %s keys' % len(identifiers)
+    for i, identifier in enumerate(identifiers):
         if '\n' in identifier:
             raise ValueError("'\\n' not allowed in identifier " + repr(identifier))
-        key = index[identifier]
+        progress(count=i+1, total=len(identifiers), interval=1000)
+        keyIndentifiers.append((index[identifier], identifier))
+    progress(count=i+1, total=len(identifiers), interval=1)
+
+    print '\rWriting %s records' % len(identifiers)
+    for i, (key, identifier) in enumerate(sorted(keyIndentifiers)):
+        progress(count=i+1, total=len(identifiers), interval=1000)
         data = oldSeqStoreByNum[key]
         newData = "+%s\n%s" % (identifier, data)
         newSeqStoreByNum.add(key, newData)
+    progress(count=i+1, total=len(identifiers), interval=1)
+    print
 
     rename(newSeqStoreByNumFileName, oldSeqStoreByNumFileName)
 
     with open(versionFile, 'w') as f:
         f.write('2')
 
+def progress(count, total, interval, out=stdout):
+    if count % interval != 0:
+        return
+    out.write("\rprogress: %.1f%%" % (100.0 * count / total))
 
 def main():
     if len(argv) != 2:
