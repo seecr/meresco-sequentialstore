@@ -3,8 +3,9 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2015 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
+# Copyright (C) 2015 Stichting Kennisnet http://www.kennisnet.nl
 #
 # This file is part of "Meresco SequentialStore"
 #
@@ -27,10 +28,4 @@
 export LANG=en_US.UTF-8
 export PYTHONPATH=.:"$PYTHONPATH"
 export WEIGHTLESS_COMPOSE_TEST="PYTHON"
-pycmd="python2.6"
-if [ -f /etc/debian_version ]; then
-    if [ "$(cat /etc/debian_version | awk -F. '{print $1}')" = "7" ]; then
-        pycmd="python2.7"
-    fi
-fi
-$pycmd _performancetest.py "$@"
+python _performancetest.py "$@"
