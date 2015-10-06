@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2015 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -37,13 +37,18 @@ class _SequentialStorageByNum(object):
         blockSize = blockSize or DEFAULT_BLOCK_SIZE
         self._blkIndex = _BlkIndex(self, blockSize)
         self.lastKey = None
-        lastBlk = self._blkIndex.search(LARGER_THAN_ANY_KEY)
-        try:
-            self.lastKey = self._blkIndex.scan(lastBlk, last=True)
-        except StopIteration:
-            pass
-        if self.lastKey is None:
-            assert lastBlk == 0, 'SequentialStorage in %s internally inconsistent.' % abspath(fileName)
+        targetBlk = lastBlk = self._blkIndex.search(LARGER_THAN_ANY_KEY)
+        while True:
+            try:
+                self.lastKey = self._blkIndex.scan(targetBlk, last=True)
+            except StopIteration:
+                pass
+            if self.lastKey is None:
+                if targetBlk > 0:
+                    targetBlk -= 1
+                    continue
+                assert lastBlk == 0, '%s not recognized as SequentialStorage (or all data corrupt).' % abspath(fileName)
+            break
 
     def add(self, key, data, alreadyCompressed=False):
         _intcheck(key)

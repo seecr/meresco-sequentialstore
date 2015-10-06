@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2015 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -528,13 +528,7 @@ class SequentialStorageByNumTest(SeecrTestCase):
         s.add(1, "record")
         s.write(randomString(4 * DEFAULT_BLOCK_SIZE))
         s.write(SENTINEL + '\n2\n42\n')  # sentinal + key and length, but no data
-        # self.assertEquals(1, s.lastKey)  # preferred functionality, but too costly to get right
-        try:
-            lastKey = s.lastKey
-        except AssertionError, e:
-            self.assertEquals('SequentialStorage in %s internally inconsistent.' % abspath(self.tempfile), str(e))
-        else:
-            self.fail('unexpectedly found lastKey: %s' % lastKey)
+        self.assertEquals(1, s.lastKey)
 
     def testTargetKeySkipsRubbish(self):
         s = _SequentialStorageByNum(self.tempfile)
@@ -625,6 +619,13 @@ class SequentialStorageByNumTest(SeecrTestCase):
         s.copyTo(target=target, keys=[1, 2], skipDataCheck=True)
         self.assertEquals([(1, data)], list(target.range()))
 
+    def testFindLastKeyInCaseLastBlockCorrupt(self):
+        s = ReopeningSeqStorage(self)
+        s.add(1, randomString(255))
+        s.add(2, randomString(DEFAULT_BLOCK_SIZE*4))
+        s.write(SENTINEL + '\n2\n42\n')
+        s = _SequentialStorageByNum(self.tempfile)
+        self.assertEqual(2, s.lastKey)
 
 class ReopeningSeqStorage(object):
     def __init__(self, testCase):
