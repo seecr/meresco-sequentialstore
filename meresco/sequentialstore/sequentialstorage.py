@@ -32,9 +32,11 @@ from shutil import rmtree
 from warnings import warn
 
 from _sequentialstoragebynum import _SequentialStorageByNum
+from collections import namedtuple
 
 
 imported = False
+SeqStorageIndex = None
 def lazyImport():
     global imported
     if imported:
@@ -92,8 +94,7 @@ class SequentialStorage(object):
     def __getitem__(self, identifier):
         key = self._index[str(identifier)]
         data = self._seqStorageByNum[key]
-        identifier, data, delete = self._unwrap(data)
-        return data
+        return self._unwrap(data).data
 
     def get(self, identifier, default=None):
         try:
@@ -113,7 +114,7 @@ class SequentialStorage(object):
             else:
                 keys2Identifiers[key] = identifier
         result = self._seqStorageByNum.getMultiple(keys=sorted(keys2Identifiers.keys()), ignoreMissing=ignoreMissing)
-        return ((keys2Identifiers.get(key), self._unwrap(data)[1]) for key, data in result)
+        return ((keys2Identifiers.get(key), self._unwrap(data).data) for key, data in result)
 
     def copyTo(self, target, skipDataCheck=False, verbose=False):
         self._seqStorageByNum.copyTo(target=target, keys=self._index.itervalues(), skipDataCheck=skipDataCheck, verbose=verbose)
@@ -161,14 +162,18 @@ class SequentialStorage(object):
             if verbose and count % 2000 == 0:
                 sys.stderr.write('\rRecovered %s items, current key: %s, last key: %s' % (count, key, seqStorageByNum.lastKey))
                 sys.stderr.flush()
-            identifier, data, delete = cls._unwrap(data)
-            identifier = str(identifier)
-            if delete:
+            event = cls._unwrap(data)
+            identifier = str(event.identifier)
+            if event.delete:
                 del index[identifier]
             else:
                 index[identifier] = key
         index.close()
         rename(tmpIndexDir, indexDir)
+
+    def events(self):
+        for key, data in iter(self._seqStorageByNum):
+            yield self._unwrap(data)
 
     @staticmethod
     def _wrap(identifier, data=None, delete=False):
@@ -181,7 +186,7 @@ class SequentialStorage(object):
         header, data = data.split('\n', 1)
         delete = header[0] == '-'
         identifier = header[1:]
-        return identifier, data, delete
+        return Event(identifier, data, delete)
 
     def _versionFormatCheck(self):
         versionFile = join(self._directory, "sequentialstorage.version")
@@ -193,6 +198,7 @@ class SequentialStorage(object):
         with open(versionFile, 'w') as f:
             f.write(self.version)
 
+Event = namedtuple('Event', ['identifier', 'data', 'delete'])
 
 class _Index(object):
     def __init__(self, path):

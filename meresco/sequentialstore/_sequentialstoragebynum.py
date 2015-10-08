@@ -4,6 +4,7 @@
 #
 # Copyright (C) 2014-2015 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
+# Copyright (C) 2015 Stichting Kennisnet http://www.kennisnet.nl
 #
 # This file is part of "Meresco SequentialStore"
 #
@@ -141,6 +142,11 @@ class _SequentialStorageByNum(object):
             progressMsg(key=originalKey)
             sys.stderr.write('\n')
             sys.stderr.flush()
+
+    def __iter__(self):
+        self._f.seek(0)
+        while True:
+            yield self._readNext()
 
     def close(self):
         self._f.close()

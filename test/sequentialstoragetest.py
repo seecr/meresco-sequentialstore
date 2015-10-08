@@ -307,3 +307,19 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEqual('1', sequentialStorage['abc1'])
         self.assertEqual('2', sequentialStorage['abc2'])
         self.assertRaises(KeyError, lambda: sequentialStorage['abc3'])
+
+    def testIterateRawStorage(self):
+        sequentialStorage = SequentialStorage(self.tempdir)
+        sequentialStorage.add(identifier='id1', data="1")
+        sequentialStorage.add(identifier='id2', data="2")
+        sequentialStorage.add(identifier='id3', data="3")
+        sequentialStorage.delete(identifier='id3')
+        sequentialStorage.add(identifier='id1', data="update1")
+
+        iterator = sequentialStorage.events()
+        self.assertEqual(('id1', '1', False), iterator.next())
+        self.assertEqual(('id2', '2', False), iterator.next())
+        self.assertEqual(('id3', '3', False), iterator.next())
+        self.assertEqual(('id3', '', True), iterator.next())
+        self.assertEqual(('id1', 'update1', False), iterator.next())
+        self.assertRaises(StopIteration, iterator.next)
