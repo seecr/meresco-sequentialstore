@@ -64,14 +64,14 @@ importVM()
 class SequentialStorage(object):
     version = '2'
 
-    def __init__(self, directory, commitCount=None, withIndex=True):
+    def __init__(self, directory, commitCount=None):
         self._directory = directory
         self._versionFormatCheck()
         indexDir = join(directory, INDEX_DIR)
         seqStoreByNumFileName = join(directory, SEQSTOREBYNUM_NAME)
-        if isfile(seqStoreByNumFileName) and not isdir(indexDir) and withIndex:
+        if isfile(seqStoreByNumFileName) and not isdir(indexDir):
             self.recoverIndexFromData(directory, verbose=True)
-        self._index = _Index(indexDir) if withIndex else _NoIndex()
+        self._index = _Index(indexDir)
         self._seqStorageByNum = _SequentialStorageByNum(seqStoreByNumFileName)
         self._lastKey = self._seqStorageByNum.lastKey or 0
         self._commitCount = 0
@@ -224,6 +224,12 @@ class _Index(object):
             raise KeyError(key)
         return value
 
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
     def iterkeys(self):
         # WARNING: Performance penalty, forcefully reopens reader.
         self._reopen()
@@ -257,21 +263,6 @@ class _Index(object):
     def commit(self):
         self._index.commit()
 
-class _NoIndex(object):
-    def __setitem__(self, key, value):
-        pass
-    def __getitem__(self, key):
-        raise KeyError(key)
-    def __delitem__(self, key):
-        pass
-    def iterkeys(self):
-        return _IterableWithLength(iter([]), 0)
-    def itervalues(self):
-        return _IterableWithLength(iter([]), 0)
-    def close(self):
-        pass
-    def commit(self):
-        pass
 
 class _IterableWithLength(object):
     def __init__(self, iterable, length):

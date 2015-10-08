@@ -5,7 +5,6 @@
 # Copyright (C) 2014-2015 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 # Copyright (C) 2015 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
-# Copyright (C) 2015 Stichting Kennisnet http://www.kennisnet.nl
 #
 # This file is part of "Meresco SequentialStore"
 #
@@ -293,20 +292,6 @@ class SequentialStorageTest(SeecrTestCase):
         sequentialStorage = SequentialStorage(self.tempdir)
         self.assertRaises(KeyError, lambda: sequentialStorage['abc'])
         self.assertEquals('2', sequentialStorage['def'])
-
-    def testAddWithoutIndex(self):
-        sequentialStorage = SequentialStorage(self.tempdir, withIndex=False)
-        sequentialStorage.add(identifier='abc1', data="1")
-        sequentialStorage.add(identifier='abc2', data="2")
-        sequentialStorage.add(identifier='abc3', data="3")
-        sequentialStorage.delete(identifier='abc3')
-        self.assertRaises(KeyError, lambda: sequentialStorage['abc2'])
-        sequentialStorage.close()
-
-        sequentialStorage = SequentialStorage(self.tempdir)
-        self.assertEqual('1', sequentialStorage['abc1'])
-        self.assertEqual('2', sequentialStorage['abc2'])
-        self.assertRaises(KeyError, lambda: sequentialStorage['abc3'])
 
     def testIterateRawStorage(self):
         sequentialStorage = SequentialStorage(self.tempdir)
