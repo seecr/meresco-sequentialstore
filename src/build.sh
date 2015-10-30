@@ -33,7 +33,7 @@ if [ -z "$libDir" ]; then
 fi
 
 rm -rf $buildDir $libDir
-mkdir --parents buildDir $libDir
+mkdir --parents $buildDir $libDir
 
 pythonVersion=$(python --version 2>&1 | awk '{print $2}' | cut -d. -f-2)
 
