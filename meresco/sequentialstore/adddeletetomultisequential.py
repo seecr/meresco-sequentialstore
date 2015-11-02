@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2015 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -23,10 +23,10 @@
 #
 ## end license ##
 
-from meresco.core import Observable
+from meresco.core import Transparent
 
 
-class AddDeleteToMultiSequential(Observable):
+class AddDeleteToMultiSequential(Transparent):
     """Provided for 'backwards' compatibility to allow MultiSequentialStorage to be passed 'add' and 'delete' messages by older components (in Meresco DNA)."""
     def add(self, identifier, partname, data):
         self.call.addData(identifier=identifier, name=partname, data=data)
