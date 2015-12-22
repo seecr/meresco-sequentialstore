@@ -3,7 +3,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2015 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -27,27 +27,21 @@
 from seecrdeps import includeParentAndDeps       #DO_NOT_DISTRIBUTE
 includeParentAndDeps(__file__)                   #DO_NOT_DISTRIBUTE
 
-from sys import argv
 
 from meresco.sequentialstore.garbagecollect import garbageCollect
+from optparse import OptionParser
 
 
 if __name__ == '__main__':
-    args = argv[1:]
-    skipDataCheck = False
-    verbose = False
-    if '--skip-data-check' in args:
-        skipDataCheck = True
-        args.remove('--skip-data-check')
-    if '--verbose' in args:
-        verbose = True
-        args.remove('--verbose')
+    parser = OptionParser(usage="usage: %prog [options] storage_directory")
+    parser.add_option('-q', '--quiet', dest='verbose', action='store_false', default=True, help='Do not print progress')
+    parser.add_option('', '--skip-data-check', dest='skipDataCheck', default=False, action='store_true', help='Faster, but does not deal with all potential corruption.')
 
-    if not len(args) == 1:
-        print "Usage: %s [--verbose] [--skip-data-check] <directory>" % argv[0]
-        print "    --verbose          Print progress info;"
-        print "    --skip-data-check  Faster, but does not deal with all potential corruption."
-        exit(1)
+    options, args = parser.parse_args()
+
+    if len(args) != 1:
+        parser.print_help()
+        exit(0)
 
     directory = args[0]
-    garbageCollect(directory, skipDataCheck=skipDataCheck, verbose=verbose)
+    garbageCollect(directory, skipDataCheck=options.skipDataCheck, verbose=options.verbose)
