@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014-2015 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2016 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 # Copyright (C) 2015 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
 # Copyright (C) 2015 Stichting Kennisnet http://www.kennisnet.nl
@@ -74,8 +74,6 @@ class SequentialStorage(object):
         self._index = _Index(indexDir)
         self._seqStorageByNum = _SequentialStorageByNum(seqStoreByNumFileName)
         self._lastKey = self._seqStorageByNum.lastKey or 0
-        self._commitCount = 0
-        self._maxCommitCount = commitCount or 1000
 
     def add(self, identifier, data):
         self._lastKey += 1
