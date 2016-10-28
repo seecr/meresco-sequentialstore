@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014, 2016 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -26,5 +26,5 @@
 from . import SequentialStorage
 
 
-def garbageCollect(directory, skipDataCheck=False, verbose=False):
-    SequentialStorage.gc(directory, skipDataCheck=skipDataCheck, verbose=verbose)
+def garbageCollect(directory, targetDir=None, skipDataCheck=False, verbose=False):
+    SequentialStorage.gc(directory, targetDir=targetDir, skipDataCheck=skipDataCheck, verbose=verbose)

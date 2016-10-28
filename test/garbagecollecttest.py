@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014, 2016 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -26,7 +26,7 @@
 from seecr.test import SeecrTestCase
 from seecr.test.io import stderr_replaced
 
-from os import stat, makedirs
+from os import stat, makedirs, rename
 from os.path import join, isfile
 from time import time
 
@@ -117,7 +117,7 @@ class GarbageCollectTest(SeecrTestCase):
         garbageCollect(directory)
         s = SequentialStorage(directory)
         self.assertEquals('data99', s['id:99'])
-        self.assertTiming(0.01, time() - t0, 0.05)
+        self.assertTiming(0.01, time() - t0, 0.06)
 
     def testVerboseWithLargerGC(self):
         # Too small GC's won't test verbosity
@@ -144,7 +144,7 @@ class GarbageCollectTest(SeecrTestCase):
 Progress:
 \rIdentifiers (#2000 of #2161), NumericKeys (current 3849, last 4589)\
 \rIdentifiers (#2161 of #2161), NumericKeys (current 4050, last 4589)
-Finished garbage-collecting SequentialStorage.''', result)
+Finished garbage-collecting SequentialStorage.\n\n''', result)
 
         s = SequentialStorage(directory)
         self.assertEquals(2161, len(s._index))
@@ -153,6 +153,64 @@ Finished garbage-collecting SequentialStorage.''', result)
         self.assertEquals('rewrite2699', s['id:2699'])
 
         self.assertTiming(0.10, t1 - t0, 0.50)
+
+    def testTargetDirMustBeExistingDir(self):
+        directory = join(self.tempdir, 'store')
+        s = SequentialStorage(directory)
+        s.close()
+        try:
+            garbageCollect(directory, targetDir=join(self.tempdir, 'does-not-exist'))
+            self.fail()
+        except ValueError, e:
+            self.assertEquals("'targetDir' %s/does-not-exist is not an existing directory." % self.tempdir, str(e))
+
+    def testSpecifiedTargetDir(self):
+        directory = join(self.tempdir, 'store')
+        s = SequentialStorage(directory)
+        filename = s._seqStorageByNum._f.name
+        s.add('id:1', 'data1')
+        s.add('id:2', 'data2')
+        s.add('id:3', 'data3')
+        s.add('id:1', 'data4')
+        s.delete('id:2')
+
+        self.assertEquals('data4', s['id:1'])
+        self.assertRaises(KeyError, lambda: s['id:2'])
+        self.assertEquals('data3', s['id:3'])
+        s.close()
+        filesize = stat(filename).st_size
+
+        targetDir = join(self.tempdir, 'target')
+        makedirs(targetDir)
+        with stderr_replaced() as err:
+            garbageCollect(directory, targetDir=targetDir, verbose=True)
+            self.assertEquals('''\
+Progress:
+\rIdentifiers (#2 of #2), NumericKeys (current 4, last 5)
+To finish garbage-collecting the SequentialStorage, now replace '{0}/store/seqstore' with '{0}/target/seqstore' manually.\n\n'''.format(self.tempdir), err.getvalue())
+
+        self.assertEquals(filesize, stat(filename).st_size)
+
+        targetFilename = join(self.tempdir, 'target', 'seqstore')
+        self.assertTrue(isfile(targetFilename))
+        self.assertTrue(0 < stat(targetFilename).st_size < filesize)
+
+        s = SequentialStorage(directory)
+        self.assertEquals([(1, '+id:1\ndata1'), (2, '+id:2\ndata2'), (3, '+id:3\ndata3'), (4, '+id:1\ndata4'), (5, '-id:2\n')], list(s._seqStorageByNum.range()))
+
+        self.assertEquals('data4', s['id:1'])
+        self.assertRaises(KeyError, lambda: s['id:2'])
+        self.assertEquals('data3', s['id:3'])
+        s.close()
+
+        rename(targetFilename, filename)  # the manual step to be taken by the administrator to finish the GC with 'targetDir'
+        s = SequentialStorage(directory)
+        self.assertEquals([(3, '+id:3\ndata3'), (4, '+id:1\ndata4')], list(s._seqStorageByNum.range()))
+
+        self.assertEquals('data4', s['id:1'])
+        self.assertRaises(KeyError, lambda: s['id:2'])
+        self.assertEquals('data3', s['id:3'])
+        s.close()
 
     def SKIP_testPerformance(self):
         data = randomString(200)

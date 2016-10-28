@@ -3,7 +3,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014-2015 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2016 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -36,6 +36,7 @@ if __name__ == '__main__':
     parser = OptionParser(usage="usage: %prog [options] storage_directory")
     parser.add_option('-q', '--quiet', dest='verbose', action='store_false', default=True, help='Do not print progress')
     parser.add_option('', '--skip-data-check', dest='skipDataCheck', default=False, action='store_true', help='Faster, but does not deal with all potential corruption.')
+    parser.add_option('', '--targetDir', dest='targetDir', help='Should not be necessary, but serves as a last resort when the current disk lacks space (requires manual step to finish).')
 
     options, args = parser.parse_args()
 
@@ -44,4 +45,4 @@ if __name__ == '__main__':
         exit(0)
 
     directory = args[0]
-    garbageCollect(directory, skipDataCheck=options.skipDataCheck, verbose=options.verbose)
+    garbageCollect(directory, targetDir=options.targetDir, skipDataCheck=options.skipDataCheck, verbose=options.verbose)

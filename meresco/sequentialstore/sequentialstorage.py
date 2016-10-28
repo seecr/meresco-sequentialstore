@@ -118,21 +118,27 @@ class SequentialStorage(object):
         self._seqStorageByNum.copyTo(target=target, keys=self._index.itervalues(), skipDataCheck=skipDataCheck, verbose=verbose)
 
     @classmethod
-    def gc(cls, directory, skipDataCheck=False, verbose=False):
+    def gc(cls, directory, targetDir=None, skipDataCheck=False, verbose=False):
         """Works only for closed SequentialStorage for now."""
         if not isdir(join(directory, INDEX_DIR)) or not isfile(join(directory, SEQSTOREBYNUM_NAME)):
             raise ValueError('Directory %s does not belong to a %s.' % (directory, cls))
+        targetDir = targetDir or directory
+        if not isdir(targetDir):
+            raise ValueError("'targetDir' %s is not an existing directory." % targetDir)
         s = cls(directory)
-        tmpSeqStoreFile = join(directory, 'seqstore~')
+        tmpSeqStoreFile = join(targetDir, 'seqstore~')
         if isfile(tmpSeqStoreFile):
             remove(tmpSeqStoreFile)
         tmpSequentialStorageByNum = _SequentialStorageByNum(tmpSeqStoreFile)
         s.copyTo(tmpSequentialStorageByNum, skipDataCheck=skipDataCheck, verbose=verbose)
         s.close()
         tmpSequentialStorageByNum.close()
-        rename(tmpSeqStoreFile, join(directory, 'seqstore'))
+        rename(tmpSeqStoreFile, join(targetDir, 'seqstore'))
         if verbose:
-            sys.stderr.write('Finished garbage-collecting SequentialStorage.')
+            if directory == targetDir:
+                sys.stderr.write('Finished garbage-collecting SequentialStorage.\n\n')
+            else:
+                sys.stderr.write("To finish garbage-collecting the SequentialStorage, now replace '%s' with '%s' manually.\n\n" % (join(directory, 'seqstore'), join(targetDir, 'seqstore')))
             sys.stderr.flush()
 
     def close(self):
