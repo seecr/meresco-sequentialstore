@@ -4,7 +4,7 @@
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
 # Copyright (C) 2015 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
-# Copyright (C) 2015 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2015, 2017 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2015 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 # Copyright (C) 2015 Stichting Kennisnet http://www.kennisnet.nl
 #
@@ -63,7 +63,7 @@ def convert(directory):
     for i, (key, identifier) in enumerate(sorted(keyIndentifiers)):
         progress(count=i+1, total=len(identifiers), interval=1000)
         data = oldSeqStoreByNum[key]
-        newData = "+%s\n%s" % (identifier, data)
+        newData = "+%s\n%s" % (str(identifier), data)
         newSeqStoreByNum.add(key, newData)
     progress(count=i+1, total=len(identifiers), interval=1)
     print
