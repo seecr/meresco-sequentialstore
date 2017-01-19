@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014-2015 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2015, 2017 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 # Copyright (C) 2015 Stichting Kennisnet http://www.kennisnet.nl
 #
@@ -114,7 +114,7 @@ class _SequentialStorageByNum(object):
 
     def copyTo(self, target, keys, skipDataCheck=False, verbose=False):
         def progressMsg(key):
-            msg = '\rIdentifiers (#%s of #%s), NumericKeys (current %s, last %s)' % (count, length if length is not None else 'unknown', key, self.lastKey)
+            msg = '\rIdentifiers (#%s of #%s), NumericKeys (current %s, last %s)' % (thousandsformat(count), thousandsformat(length) if length is not None else 'unknown', thousandsformat(key), thousandsformat(self.lastKey))
             sys.stderr.write(msg)
             sys.stderr.flush()
 
@@ -205,6 +205,11 @@ SENTINEL = "----"
 RECORD = "%(sentinel)s\n%(key)s\n%(length)s\n%(data)s\n"
 LARGER_THAN_ANY_KEY = 2**64
 
+def thousandsformat(n):
+    try:
+        return format(n, ',').replace(',', '.')
+    except ValueError:
+        return n
 
 class _BlkIndex(object):
     def __init__(self, src, blk_size):

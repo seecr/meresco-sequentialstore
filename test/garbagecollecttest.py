@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014, 2016 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014, 2016-2017 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -142,8 +142,8 @@ class GarbageCollectTest(SeecrTestCase):
         t1 = time()
         self.assertEquals('''\
 Progress:
-\rIdentifiers (#2000 of #2161), NumericKeys (current 3849, last 4589)\
-\rIdentifiers (#2161 of #2161), NumericKeys (current 4050, last 4589)
+\rIdentifiers (#2.000 of #2.161), NumericKeys (current 3.849, last 4.589)\
+\rIdentifiers (#2.161 of #2.161), NumericKeys (current 4.050, last 4.589)
 Finished garbage-collecting SequentialStorage.\n\n''', result)
 
         s = SequentialStorage(directory)
