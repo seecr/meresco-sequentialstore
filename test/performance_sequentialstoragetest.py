@@ -84,6 +84,7 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
                     print i, i / T
             print "write", T / N
             c.close()
+
         #from seecr.utils.profileit import profile
         #profile(f)
         f()

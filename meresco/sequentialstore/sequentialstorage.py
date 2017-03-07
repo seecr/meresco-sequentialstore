@@ -31,22 +31,8 @@ from os.path import join, isdir, isfile
 from shutil import rmtree
 from warnings import warn
 
-from _sequentialstoragebynum import _SequentialStorageByNum
-from collections import namedtuple
-
 
 imported = False
-SeqStorageIndex = None
-def lazyImport():
-    global imported
-    if imported:
-        return
-    imported = True
-    from meresco_sequentialstore import initVM as initMerescoSequentialStore
-    initMerescoSequentialStore()
-    from org.meresco.sequentialstore import SeqStorageIndex
-    globals().update(locals())
-
 def importVM():
     maxheap = getenv('PYLUCENE_MAXHEAP')
     if not maxheap:
@@ -58,41 +44,80 @@ def importVM():
     except ValueError:
         VM = getVMEnv()
     return VM
-importVM()
+
+
+def lazyImport():
+    global imported
+    if imported:
+        return
+    importVM()
+    # from meresco_sequentialstore import initVM as initMerescoSequentialStore
+    # initMerescoSequentialStore()
+
+    from java.lang import Long
+    from java.io import File
+    from org.apache.lucene.document import Document, StringField, Field, LongField, FieldType, NumericDocValuesField
+    from org.apache.lucene.search import IndexSearcher, TermQuery, Sort, SortField
+    from org.apache.lucene.index import DirectoryReader, Term, IndexWriter, IndexWriterConfig
+    from org.apache.lucene.index.sorter import SortingMergePolicy
+    from org.apache.lucene.store import FSDirectory
+    from org.apache.lucene.util import Version
+    from org.apache.lucene.analysis.core import WhitespaceAnalyzer
+
+    UNINDEXED_TYPE = FieldType()
+    UNINDEXED_TYPE.setIndexed(False)
+    UNINDEXED_TYPE.setStored(True)
+    UNINDEXED_TYPE.setTokenized(False)
+
+    imported = True
+    globals().update(locals())
 
 
 class SequentialStorage(object):
-    version = '2'
+    version = '3'
 
     def __init__(self, directory, commitCount=None):
+        lazyImport()
         self._directory = directory
+        if not isdir(directory):
+            makedirs(directory)
         self._versionFormatCheck()
-        indexDir = join(directory, INDEX_DIR)
-        seqStoreByNumFileName = join(directory, SEQSTOREBYNUM_NAME)
-        if isfile(seqStoreByNumFileName) and not isdir(indexDir):
-            self.recoverIndexFromData(directory, verbose=True)
-        self._index = _Index(indexDir)
-        self._seqStorageByNum = _SequentialStorageByNum(seqStoreByNumFileName)
-        self._lastKey = self._seqStorageByNum.lastKey or 0
+        self._writer, self._reader, self._searcher = self._getLucene()
+        self._latestModifications = set()
+        self._newestKey = self._newestKeyFromIndex()
+
+        self._identifierField = StringField(_IDENTIFIER_FIELD, "", Field.Store.NO)
+        self._keyField = LongField(_KEY_FIELD, 0L, Field.Store.YES)
+        self._numericKeyField = NumericDocValuesField(_NUMERIC_KEY_FIELD, 0L)
+        self._dataField = Field(_DATA_FIELD, "", UNINDEXED_TYPE)
+        self._doc = Document()
+        self._doc.add(self._identifierField)
+        self._doc.add(self._keyField)
+        self._doc.add(self._numericKeyField)
+        self._doc.add(self._dataField)
 
     def add(self, identifier, data):
-        self._lastKey += 1
-        key = self._lastKey
-        data = self._wrap(identifier, data)
-        self._seqStorageByNum.add(key=key, data=data)
-        self._index[str(identifier)] = key  # only after actually writing data
+        identifier = str(identifier)
+        data = data if data is None else str(data)
+        newKey = self._newKey()
+        self._identifierField.setStringValue(identifier)
+        self._keyField.setLongValue(newKey)
+        self._numericKeyField.setLongValue(newKey)
+        self._dataField.setStringValue(data)
+        self._writer.updateDocument(Term(_IDENTIFIER_FIELD, identifier), self._doc)
+        self._latestModifications.add(identifier)
 
     def delete(self, identifier):
-        self._lastKey += 1
-        key = self._lastKey
-        data = self._wrap(identifier, delete=True)
-        self._seqStorageByNum.add(key=key, data=data)
-        del self._index[str(identifier)]
+        identifier = str(identifier)
+        self._writer.deleteDocuments(Term(_IDENTIFIER_FIELD, identifier))
+        self._latestModifications.add(identifier)
 
     def __getitem__(self, identifier):
-        key = self._index[str(identifier)]
-        data = self._seqStorageByNum[key]
-        return self._unwrap(data).data
+        identifier = str(identifier)
+        doc = self._getDocument(identifier)
+        if doc is None:
+            raise KeyError(identifier)
+        return str(doc.getField(_DATA_FIELD).stringValue())
 
     def get(self, identifier, default=None):
         try:
@@ -101,98 +126,69 @@ class SequentialStorage(object):
             return default
 
     def getMultiple(self, identifiers, ignoreMissing=False):
-        keys2Identifiers = dict()
         for identifier in identifiers:
             identifier = str(identifier)
-            try:
-                key = self._index[identifier]
-            except KeyError:
-                if not ignoreMissing:
-                    raise
-            else:
-                keys2Identifiers[key] = identifier
-        result = self._seqStorageByNum.getMultiple(keys=sorted(keys2Identifiers.keys()), ignoreMissing=ignoreMissing)
-        return ((keys2Identifiers.get(key), self._unwrap(data).data) for key, data in result)
-
-    def copyTo(self, target, skipDataCheck=False, verbose=False):
-        self._seqStorageByNum.copyTo(target=target, keys=self._index.itervalues(), skipDataCheck=skipDataCheck, verbose=verbose)
-
-    @classmethod
-    def gc(cls, directory, targetDir=None, skipDataCheck=False, verbose=False):
-        """Works only for closed SequentialStorage for now."""
-        if not isdir(join(directory, INDEX_DIR)) or not isfile(join(directory, SEQSTOREBYNUM_NAME)):
-            raise ValueError('Directory %s does not belong to a %s.' % (directory, cls))
-        targetDir = targetDir or directory
-        if not isdir(targetDir):
-            raise ValueError("'targetDir' %s is not an existing directory." % targetDir)
-        s = cls(directory)
-        tmpSeqStoreFile = join(targetDir, 'seqstore~')
-        if isfile(tmpSeqStoreFile):
-            remove(tmpSeqStoreFile)
-        tmpSequentialStorageByNum = _SequentialStorageByNum(tmpSeqStoreFile)
-        s.copyTo(tmpSequentialStorageByNum, skipDataCheck=skipDataCheck, verbose=verbose)
-        s.close()
-        tmpSequentialStorageByNum.close()
-        rename(tmpSeqStoreFile, join(targetDir, 'seqstore'))
-        if verbose:
-            if directory == targetDir:
-                sys.stderr.write('Finished garbage-collecting SequentialStorage.\n\n')
-            else:
-                sys.stderr.write("To finish garbage-collecting the SequentialStorage, now replace '%s' with '%s' manually.\n\n" % (join(directory, 'seqstore'), join(targetDir, 'seqstore')))
-            sys.stderr.flush()
+            doc = self._getDocument(identifier)
+            if doc is None:
+                if ignoreMissing:
+                    continue
+                else:
+                    raise KeyError(identifier)
+            yield identifier, str(doc.getField(_DATA_FIELD).stringValue())
 
     def close(self):
-        if self._seqStorageByNum is None:
+        if self._writer is None:
             return
-        self._seqStorageByNum.close()
-        self._seqStorageByNum = None
-        self._index.close()
-        self._index = None
+        self.commit()
+        self._writer.close()
+        self._writer = None
+        self._reader.close()
+        self._searcher = None
+        self._reader = None
 
     def commit(self):
-        self._seqStorageByNum.flush()
-        self._index.commit()
+        self._writer.commit()
+        self._reopen()
 
-    @classmethod
-    def recoverIndexFromData(cls, directory, verbose=False):
-        indexDir = join(directory, INDEX_DIR)
-        assert not isdir(indexDir), "To allow for recovery, the index directory '%s' should be removed first." % indexDir
-        tmpIndexDir = join(directory, INDEX_DIR + '.tmp')
-        if isdir(tmpIndexDir):
-            rmtree(tmpIndexDir)
-        index = _Index(tmpIndexDir)
-        seqStorageByNum = _SequentialStorageByNum(join(directory, SEQSTOREBYNUM_NAME))
-        count = 0
-        for key, data in seqStorageByNum.range():
-            count += 1
-            if verbose and count % 2000 == 0:
-                sys.stderr.write('\rRecovered %s items, current key: %s, last key: %s' % (count, key, seqStorageByNum.lastKey))
-                sys.stderr.flush()
-            event = cls._unwrap(data)
-            identifier = str(event.identifier)
-            if event.delete:
-                del index[identifier]
-            else:
-                index[identifier] = key
-        index.close()
-        rename(tmpIndexDir, indexDir)
+    def _newKey(self):
+        self._newestKey += 1L
+        return self._newestKey
 
-    def events(self):
-        for key, data in iter(self._seqStorageByNum):
-            yield self._unwrap(data)
+    def _newestKeyFromIndex(self):
+        searcher = self._getSearcher()
+        maxDoc = searcher.getIndexReader().maxDoc()
+        if maxDoc < 1:
+            return 0L
+        doc = searcher.doc(maxDoc - 1)
+        if doc is None:
+            return 0L
+        newestKey = doc.getField(_KEY_FIELD).numericValue().longValue()
+        return newestKey
 
-    @staticmethod
-    def _wrap(identifier, data=None, delete=False):
-        if '\n' in identifier:
-            raise ValueError("'\\n' not allowed in identifier " + repr(identifier))
-        return "%s%s\n%s" % ("-" if delete else "+", identifier, data or '')
+    def _getDocument(self, identifier):
+        searcher = self._getSearcher(identifier)
+        results = searcher.search(TermQuery(Term(_IDENTIFIER_FIELD, identifier)), 1)
+        if results.totalHits == 0:
+            return None
+        docId = results.scoreDocs[0].doc
+        return searcher.doc(docId) if docId is not None else None
 
-    @staticmethod
-    def _unwrap(data):
-        header, data = data.split('\n', 1)
-        delete = header[0] == '-'
-        identifier = header[1:]
-        return Event(identifier, data, delete)
+    def _getSearcher(self, identifier=None):
+        modifications = len(self._latestModifications)
+        if modifications == 0:
+            return self._searcher
+        if identifier and str(identifier) not in self._latestModifications and modifications < _MAX_MODIFICATIONS:
+            return self._searcher
+        self._reopen()
+        return self._searcher
+
+    def _reopen(self):
+        newreader = DirectoryReader.openIfChanged(self._reader, self._writer, True)
+        if newreader:
+            self._reader.close()
+            self._reader = newreader
+            self._searcher = IndexSearcher(newreader)
+            self._latestModifications.clear()
 
     def _versionFormatCheck(self):
         versionFile = join(self._directory, "sequentialstorage.version")
@@ -204,84 +200,25 @@ class SequentialStorage(object):
         with open(versionFile, 'w') as f:
             f.write(self.version)
 
-Event = namedtuple('Event', ['identifier', 'data', 'delete'])
+    def _getLucene(self):
+        directory = FSDirectory.open(File(self._directory))
+        config = IndexWriterConfig(Version.LATEST, None)
+        config.setRAMBufferSizeMB(256.0) # faster
+        config.setUseCompoundFile(False) # faster, for Lucene 4.4 and later
+        # TODO: set max segment size?
 
-class _Index(object):
-    def __init__(self, path):
-        lazyImport()
-        self._index = SeqStorageIndex(path)
-        self._latestModifications = {}
-
-    def __setitem__(self, key, value):
-        assert value > 0  # 0 has special meaning in this context
-        self._maybeReopen()
-        self._index.setKeyValue(key, long(value))
-        self._latestModifications[key] = value
-
-    def __getitem__(self, key):
-        value = self._latestModifications.get(key)
-        if value == DELETED_RECORD:
-            raise KeyError(key)
-        elif value is not None:
-            return value
-        self._maybeReopen()
-        value = self._index.getValue(key)
-        if value == -1:
-            raise KeyError(key)
-        return value
-
-    def get(self, key, default=None):
-        try:
-            return self[key]
-        except KeyError:
-            return default
-
-    def iterkeys(self):
-        # WARNING: Performance penalty, forcefully reopens reader.
-        self._reopen()
-        return _IterableWithLength(self._index.iterkeys(), len(self))
-
-    def itervalues(self):
-        # WARNING: Performance penalty, forcefully reopens reader.
-        self._reopen()
-        return _IterableWithLength(self._index.itervalues(), len(self))
-
-    def __len__(self):
-        # WARNING: Performance penalty, commits writer to get an accurate length.
-        self.commit()
-        return self._index.length()
-
-    def __delitem__(self, key):
-        self._index.delete(key)
-        self._latestModifications[key] = DELETED_RECORD
-
-    def _maybeReopen(self):
-        if len(self._latestModifications) > 10000:
-            self._reopen()
-
-    def _reopen(self):
-        self._index.reopen()
-        self._latestModifications.clear()
-
-    def close(self):
-        self._index.close()
-
-    def commit(self):
-        self._index.commit()
+        mergePolicy = config.getMergePolicy()
+        sortingMergePolicy = SortingMergePolicy(mergePolicy, Sort(SortField(_NUMERIC_KEY_FIELD, SortField.Type.LONG)))
+        config.setMergePolicy(sortingMergePolicy)
+        writer = IndexWriter(directory, config)
+        reader = writer.getReader()
+        searcher = IndexSearcher(reader)
+        return writer, reader, searcher
 
 
-class _IterableWithLength(object):
-    def __init__(self, iterable, length):
-        self.iterable = iterable
-        self.length = length
+_MAX_MODIFICATIONS = 10000
 
-    def __iter__(self):
-        return self.iterable
-
-    def __len__(self):
-        return self.length
-
-
-DELETED_RECORD = object()
-INDEX_DIR = 'index'
-SEQSTOREBYNUM_NAME = 'seqstore'
+_IDENTIFIER_FIELD = "identifier"
+_KEY_FIELD = "key"
+_NUMERIC_KEY_FIELD = "key"
+_DATA_FIELD = "data"

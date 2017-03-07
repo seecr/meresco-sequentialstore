@@ -3,7 +3,7 @@
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
 # Copyright (C) 2014 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
-# Copyright (C) 2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014, 2017 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -26,6 +26,7 @@
 
 from seecr.test import SeecrTestCase
 
+from os import remove
 from os.path import join, isdir
 
 from meresco.sequentialstore import MultiSequentialStorage, SequentialStorage
@@ -136,8 +137,7 @@ class MultiSequentialStorageTest(SeecrTestCase):
     def testCommit(self):
         s = MultiSequentialStorage(self.tempdir)
         s.addData('2', "part1", "data1")
+        self.assertEquals(set({'2'}), s._storage['part1']._latestModifications)
         s.commit()
-        s._storage['part1']._index.close()
-
-        s = MultiSequentialStorage(self.tempdir)
+        self.assertEquals(set(), s._storage['part1']._latestModifications)
         self.assertEquals('data1', s.getData('2', 'part1'))
