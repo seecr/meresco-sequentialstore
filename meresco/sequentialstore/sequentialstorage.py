@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014-2016 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2017 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 # Copyright (C) 2015 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
 # Copyright (C) 2015 Stichting Kennisnet http://www.kennisnet.nl
@@ -142,6 +142,8 @@ class SequentialStorage(object):
             sys.stderr.flush()
 
     def close(self):
+        if self._seqStorageByNum is None:
+            return
         self._seqStorageByNum.close()
         self._seqStorageByNum = None
         self._index.close()
