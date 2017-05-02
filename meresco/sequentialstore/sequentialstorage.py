@@ -31,7 +31,7 @@ from os.path import join, isdir, isfile
 from shutil import rmtree
 from warnings import warn
 
-from _sequentialstoragebynum import _SequentialStorageByNum
+#from _sequentialstoragebynum import _SequentialStorageByNum
 from collections import namedtuple
 
 
@@ -45,6 +45,7 @@ def lazyImport():
     from meresco_sequentialstore import initVM as initMerescoSequentialStore
     initMerescoSequentialStore()
     from org.meresco.sequentialstore import SeqStorageIndex
+    from org.meresco.sequentialstore import SeqStorageStore
     globals().update(locals())
 
 def importVM():
@@ -68,30 +69,31 @@ class SequentialStorage(object):
         self._directory = directory
         self._versionFormatCheck()
         indexDir = join(directory, INDEX_DIR)
-        seqStoreByNumFileName = join(directory, SEQSTOREBYNUM_NAME)
-        if isfile(seqStoreByNumFileName) and not isdir(indexDir):
-            self.recoverIndexFromData(directory, verbose=True)
+        #seqStoreByNumFileName = join(directory, SEQSTOREBYNUM_NAME)
+        #if isfile(seqStoreByNumFileName) and not isdir(indexDir):
+        #    self.recoverIndexFromData(directory, verbose=True)
         self._index = _Index(indexDir)
-        self._seqStorageByNum = _SequentialStorageByNum(seqStoreByNumFileName)
-        self._lastKey = self._seqStorageByNum.lastKey or 0
+        #self._store = _SequentialStorageByNum(seqStoreByNumFileName)
+        self._lastKey = self._store.lastKey or 0
+        self._store = SeqStorageStore(directory)
 
     def add(self, identifier, data):
         self._lastKey += 1
         key = self._lastKey
         data = self._wrap(identifier, data)
-        self._seqStorageByNum.add(key=key, data=data)
+        self._store.add(key=key, data=data)
         self._index[str(identifier)] = key  # only after actually writing data
 
     def delete(self, identifier):
         self._lastKey += 1
         key = self._lastKey
         data = self._wrap(identifier, delete=True)
-        self._seqStorageByNum.add(key=key, data=data)
+        self._store.add(key=key, data=data)
         del self._index[str(identifier)]
 
     def __getitem__(self, identifier):
         key = self._index[str(identifier)]
-        data = self._seqStorageByNum[key]
+        data = self._store[key]
         return self._unwrap(data).data
 
     def get(self, identifier, default=None):
@@ -111,11 +113,11 @@ class SequentialStorage(object):
                     raise
             else:
                 keys2Identifiers[key] = identifier
-        result = self._seqStorageByNum.getMultiple(keys=sorted(keys2Identifiers.keys()), ignoreMissing=ignoreMissing)
+        result = self._store.getMultiple(keys=sorted(keys2Identifiers.keys()), ignoreMissing=ignoreMissing)
         return ((keys2Identifiers.get(key), self._unwrap(data).data) for key, data in result)
 
     def copyTo(self, target, skipDataCheck=False, verbose=False):
-        self._seqStorageByNum.copyTo(target=target, keys=self._index.itervalues(), skipDataCheck=skipDataCheck, verbose=verbose)
+        self._store.copyTo(target=target, keys=self._index.itervalues(), skipDataCheck=skipDataCheck, verbose=verbose)
 
     @classmethod
     def gc(cls, directory, targetDir=None, skipDataCheck=False, verbose=False):
@@ -142,15 +144,15 @@ class SequentialStorage(object):
             sys.stderr.flush()
 
     def close(self):
-        if self._seqStorageByNum is None:
+        if self._store is None:
             return
-        self._seqStorageByNum.close()
-        self._seqStorageByNum = None
+        self._store.close()
+        self._store = None
         self._index.close()
         self._index = None
 
     def commit(self):
-        self._seqStorageByNum.flush()
+        self._store.flush()
         self._index.commit()
 
     @classmethod
@@ -178,7 +180,7 @@ class SequentialStorage(object):
         rename(tmpIndexDir, indexDir)
 
     def events(self):
-        for key, data in iter(self._seqStorageByNum):
+        for key, data in iter(self._store):
             yield self._unwrap(data)
 
     @staticmethod
