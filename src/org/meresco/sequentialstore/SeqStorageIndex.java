@@ -29,16 +29,13 @@ package org.meresco.sequentialstore;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Iterator;
-import java.util.NoSuchElementException;
 
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.Field;
-import org.apache.lucene.document.StringField;
+import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.LongField;
 import org.apache.lucene.document.NumericDocValuesField;
-
+import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.AtomicReader;
 import org.apache.lucene.index.AtomicReaderContext;
 import org.apache.lucene.index.DirectoryReader;
@@ -46,7 +43,6 @@ import org.apache.lucene.index.DocsEnum;
 import org.apache.lucene.index.FieldInfo.IndexOptions;
 import org.apache.lucene.index.FilterAtomicReader.FilterTerms;
 import org.apache.lucene.index.FilteredTermsEnum;
-import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.MergePolicy;
@@ -57,18 +53,15 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.index.sorter.SortingMergePolicy;
-
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FSDirectory;
-
+import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
-import org.apache.lucene.search.IndexSearcher;
-
-import org.apache.lucene.util.Version;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.NumericUtils;
-import org.apache.lucene.util.Bits;
+import org.apache.lucene.util.Version;
 
 
 public class SeqStorageIndex {
@@ -158,7 +151,7 @@ public class SeqStorageIndex {
                 continue;
             }
             int docId = docsEnum.nextDoc();
-            if (docId == docsEnum.NO_MORE_DOCS) {
+            if (docId == DocsEnum.NO_MORE_DOCS) {
                 continue;
             }
             NumericDocValues numDocValues = reader.getNumericDocValues("value");
@@ -247,7 +240,7 @@ public class SeqStorageIndex {
                 public AcceptStatus accept(BytesRef term) throws IOException {
                     DocsEnum docsEnum = termsEnum.docs(TermsFilteredByLiveDocs.this.liveDocs, null, DocsEnum.FLAG_NONE);
                     int docId = docsEnum.nextDoc();
-                    if (docId == docsEnum.NO_MORE_DOCS) {
+                    if (docId == DocsEnum.NO_MORE_DOCS) {
                         return AcceptStatus.NO;
                     }
                     return AcceptStatus.YES;
