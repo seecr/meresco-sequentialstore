@@ -39,6 +39,25 @@ if not isfile(sofile) or stat(sofile).st_mtime < lastMtime:                     
         exit(result)                                                             #DO_NOT_DISTRIBUTE
 sysPath.insert(0, libDir)                                                        #DO_NOT_DISTRIBUTE
 
+
+# load and link PyLucene
+from os import getenv
+maxheap = getenv('PYLUCENE_MAXHEAP')
+if not maxheap:
+    maxheap = '4g'
+    from warnings import warn
+    warn("Using '4g' as maxheap for lucene.initVM(). To override use PYLUCENE_MAXHEAP environment variable.")
+from lucene import initVM, getVMEnv
+try:
+    VM = initVM(maxheap=maxheap)#, vmargs='-agentlib:hprof=heap=sites')
+except ValueError:
+    VM = getVMEnv()
+
+# load and link Java stuff in this shared library
+from meresco_sequentialstore import initVM
+initVM()
+
+# normal Python from here
 from __version__ import VERSION
 from adddeletetomultisequential import AddDeleteToMultiSequential
 from multisequentialstorage import MultiSequentialStorage

@@ -32,7 +32,7 @@ from shutil import rmtree
 from seecr.test import SeecrTestCase, CallTrace
 
 from meresco.sequentialstore import SequentialStorage
-from meresco.sequentialstore.sequentialstorage import _Index, INDEX_DIR
+from meresco.sequentialstore.seqstoreindex import SeqStoreIndex
 
 
 class SequentialStorageTest(SeecrTestCase):
@@ -122,7 +122,7 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertRaises(KeyError, lambda: sequentialStorage['abc'])
         self.assertEquals('2', sequentialStorage['def'])
 
-    def testClose(self):
+    def XXX_old_testClose(self):
         sequentialStorage = SequentialStorage(self.tempdir)
         sequentialStorage.add(identifier='abc', data="1")
         self.assertEquals('', open(sequentialStorage._seqStorageByNum._f.name).read())
@@ -180,21 +180,21 @@ class SequentialStorageTest(SeecrTestCase):
             self.assertTrue(repr(e).startswith('JavaError(<Throwable: org.apache.lucene.store.LockObtainFailedException: Lock obtain timed out: NativeFSLock'), e)
 
     def testIndexIterKeys(self):
-        index = _Index(self.tempdir)
+        index = SeqStoreIndex(self.tempdir)
         index['id0'] = 1
         index['id1'] = 8
         keys = list(index.iterkeys())
         self.assertEquals(['id0', 'id1'], keys)
 
     def testIndexIterValues(self):
-        index = _Index(self.tempdir)
+        index = SeqStoreIndex(self.tempdir)
         index['id0'] = 1
         index['id1'] = 8
         values = list(index.itervalues())
         self.assertEquals([1, 8], values)
 
     def testIndexLen(self):
-        index = _Index(self.tempdir)
+        index = SeqStoreIndex(self.tempdir)
         self.assertEquals(0, len(index))
 
         index['id0'] = 1
@@ -212,7 +212,7 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEquals(0, len(index))
 
     def testIndexIterValuesAfterDelete(self):
-        index = _Index(self.tempdir)
+        index = SeqStoreIndex(self.tempdir)
         index['id0'] = 1
         index['id1'] = 8
         del index['id0']
@@ -220,14 +220,14 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEquals([8], values)
 
     def testIndexItervaluesAfterUpdate(self):
-        index = _Index(self.tempdir)
+        index = SeqStoreIndex(self.tempdir)
         index['id0'] = 1
         self.assertEquals([1], list(index.itervalues()))
         index['id0'] = 2
         self.assertEquals([2], list(index.itervalues()))
 
     def testIndexItervaluesSorting(self):
-        index = _Index(self.tempdir)
+        index = SeqStoreIndex(self.tempdir)
         index['id0'] = 3
         index['id1'] = 2
         index['id2'] = 1
@@ -236,7 +236,7 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEquals([1, 2, 4], list(index.itervalues()))
 
     def testIndexIterMoreThanAFewValues(self):
-        index = _Index(self.tempdir)
+        index = SeqStoreIndex(self.tempdir)
         for i in xrange(1, 15):
             index['id%s' % i] = i * 7
         values = list(index.itervalues())
@@ -245,14 +245,14 @@ class SequentialStorageTest(SeecrTestCase):
     def testIndexIterManyValuesAfterMerge(self):
         bakje = range(1, 3000)
         shuffle(bakje)
-        index = _Index(self.tempdir)
+        index = SeqStoreIndex(self.tempdir)
         for i in xrange(2000):
             index['id%s' % i] = bakje[i]
         result = list(index.itervalues())
         self.assertEquals(sorted(result), result)
 
     def tooBig_testDemonstrateSortedSegmentsOverlap(self):
-        index = _Index("/data/seqstore_gc_perftest/big.index")
+        index = SeqStoreIndex("/data/seqstore_gc_perftest/big.index")
         # for i in xrange(32 * 10 ** 6):
         #     if i % 10000  == 0:
         #         print i
@@ -269,29 +269,6 @@ class SequentialStorageTest(SeecrTestCase):
             if value < lastValue:
                 self.fail("value %s < %s" % (value, lastValue))
             lastValue = value
-
-    def testCopyTo(self):
-        sequentialStorage = SequentialStorage(self.tempdir)
-        sequentialStorage.add(identifier='abc', data="1")
-        sequentialStorage.add(identifier='def', data="2")
-
-        copyTarget = CallTrace()
-        sequentialStorage.copyTo(target=copyTarget)
-
-        self.assertEquals(['add', 'add'], copyTarget.calledMethodNames())
-
-    def testRecoverIndexFromDataInCaseIndexDirRemoved(self):
-        sequentialStorage = SequentialStorage(self.tempdir)
-        sequentialStorage.add(identifier='abc', data="1")
-        sequentialStorage.add(identifier='def', data="2")
-        sequentialStorage.delete(identifier='abc')
-        sequentialStorage.close()
-
-        rmtree(join(self.tempdir, INDEX_DIR))
-
-        sequentialStorage = SequentialStorage(self.tempdir)
-        self.assertRaises(KeyError, lambda: sequentialStorage['abc'])
-        self.assertEquals('2', sequentialStorage['def'])
 
     def testIterateRawStorage(self):
         sequentialStorage = SequentialStorage(self.tempdir)

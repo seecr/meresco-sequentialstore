@@ -64,13 +64,13 @@ import org.apache.lucene.util.NumericUtils;
 import org.apache.lucene.util.Version;
 
 
-public class SeqStorageIndex {
+public class JSeqStoreIndex {
     public FieldType stampType;
     public IndexWriter writer;
     public DirectoryReader reader;
     public IndexSearcher searcher;
 
-    public SeqStorageIndex(String path) throws IOException {
+    public JSeqStoreIndex(String path) throws IOException {
         this.stampType = new FieldType();
         this.stampType.setIndexed(true);
         this.stampType.setStored(false);

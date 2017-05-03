@@ -29,38 +29,14 @@ import sys
 from os import getenv, makedirs, listdir, rename, remove
 from os.path import join, isdir, isfile
 from shutil import rmtree
-from warnings import warn
 
-#from _sequentialstoragebynum import _SequentialStorageByNum
 from collections import namedtuple
+from lucene import JArray
 
+from .seqstoreindex import SeqStoreIndex
+from .seqstorestore import SeqStoreStore
 
-imported = False
-SeqStorageIndex = None
-def lazyImport():
-    global imported
-    if imported:
-        return
-    imported = True
-    from meresco_sequentialstore import initVM as initMerescoSequentialStore
-    initMerescoSequentialStore()
-    from org.meresco.sequentialstore import SeqStorageIndex
-    from org.meresco.sequentialstore import SeqStorageStore
-    globals().update(locals())
-
-def importVM():
-    maxheap = getenv('PYLUCENE_MAXHEAP')
-    if not maxheap:
-        maxheap = '4g'
-        warn("Using '4g' as maxheap for lucene.initVM(). To override use PYLUCENE_MAXHEAP environment variable.")
-    from lucene import initVM, getVMEnv
-    try:
-        VM = initVM(maxheap=maxheap)#, vmargs='-agentlib:hprof=heap=sites')
-    except ValueError:
-        VM = getVMEnv()
-    return VM
-importVM()
-
+INDEX_DIR = 'index'
 
 class SequentialStorage(object):
     version = '2'
@@ -69,31 +45,27 @@ class SequentialStorage(object):
         self._directory = directory
         self._versionFormatCheck()
         indexDir = join(directory, INDEX_DIR)
-        #seqStoreByNumFileName = join(directory, SEQSTOREBYNUM_NAME)
-        #if isfile(seqStoreByNumFileName) and not isdir(indexDir):
-        #    self.recoverIndexFromData(directory, verbose=True)
-        self._index = _Index(indexDir)
-        #self._store = _SequentialStorageByNum(seqStoreByNumFileName)
+        self._index = SeqStoreIndex(indexDir)
+        self._store = SeqStoreStore(directory)
         self._lastKey = self._store.lastKey or 0
-        self._store = SeqStorageStore(directory)
 
     def add(self, identifier, data):
         self._lastKey += 1
         key = self._lastKey
         data = self._wrap(identifier, data)
-        self._store.add(key=key, data=data)
+        self._store.add(key, data)
         self._index[str(identifier)] = key  # only after actually writing data
 
     def delete(self, identifier):
         self._lastKey += 1
         key = self._lastKey
         data = self._wrap(identifier, delete=True)
-        self._store.add(key=key, data=data)
+        self._store.add(key, data)
         del self._index[str(identifier)]
 
     def __getitem__(self, identifier):
         key = self._index[str(identifier)]
-        data = self._store[key]
+        data = self._store.get(int(key))
         return self._unwrap(data).data
 
     def get(self, identifier, default=None):
@@ -112,9 +84,10 @@ class SequentialStorage(object):
                 if not ignoreMissing:
                     raise
             else:
-                keys2Identifiers[key] = identifier
-        result = self._store.getMultiple(keys=sorted(keys2Identifiers.keys()), ignoreMissing=ignoreMissing)
-        return ((keys2Identifiers.get(key), self._unwrap(data).data) for key, data in result)
+                keys2Identifiers[int(key)] = identifier
+        jarray = JArray('int')(sorted(keys2Identifiers.keys()))
+        result = self._store.getMultiple(jarray, ignoreMissing)
+        return ((keys2Identifiers.get(int(key)), self._unwrap(data).data) for key, data in result)
 
     def copyTo(self, target, skipDataCheck=False, verbose=False):
         self._store.copyTo(target=target, keys=self._index.itervalues(), skipDataCheck=skipDataCheck, verbose=verbose)
@@ -180,8 +153,9 @@ class SequentialStorage(object):
         rename(tmpIndexDir, indexDir)
 
     def events(self):
-        for key, data in iter(self._store):
-            yield self._unwrap(data)
+        self._store.reopen();
+        for event in self._store.list_events():
+            yield self._unwrap(event.data)
 
     @staticmethod
     def _wrap(identifier, data=None, delete=False):
@@ -208,82 +182,5 @@ class SequentialStorage(object):
 
 Event = namedtuple('Event', ['identifier', 'data', 'delete'])
 
-class _Index(object):
-    def __init__(self, path):
-        lazyImport()
-        self._index = SeqStorageIndex(path)
-        self._latestModifications = {}
-
-    def __setitem__(self, key, value):
-        assert value > 0  # 0 has special meaning in this context
-        self._maybeReopen()
-        self._index.setKeyValue(key, long(value))
-        self._latestModifications[key] = value
-
-    def __getitem__(self, key):
-        value = self._latestModifications.get(key)
-        if value == DELETED_RECORD:
-            raise KeyError(key)
-        elif value is not None:
-            return value
-        self._maybeReopen()
-        value = self._index.getValue(key)
-        if value == -1:
-            raise KeyError(key)
-        return value
-
-    def get(self, key, default=None):
-        try:
-            return self[key]
-        except KeyError:
-            return default
-
-    def iterkeys(self):
-        # WARNING: Performance penalty, forcefully reopens reader.
-        self._reopen()
-        return _IterableWithLength(self._index.iterkeys(), len(self))
-
-    def itervalues(self):
-        # WARNING: Performance penalty, forcefully reopens reader.
-        self._reopen()
-        return _IterableWithLength(self._index.itervalues(), len(self))
-
-    def __len__(self):
-        # WARNING: Performance penalty, commits writer to get an accurate length.
-        self.commit()
-        return self._index.length()
-
-    def __delitem__(self, key):
-        self._index.delete(key)
-        self._latestModifications[key] = DELETED_RECORD
-
-    def _maybeReopen(self):
-        if len(self._latestModifications) > 10000:
-            self._reopen()
-
-    def _reopen(self):
-        self._index.reopen()
-        self._latestModifications.clear()
-
-    def close(self):
-        self._index.close()
-
-    def commit(self):
-        self._index.commit()
 
 
-class _IterableWithLength(object):
-    def __init__(self, iterable, length):
-        self.iterable = iterable
-        self.length = length
-
-    def __iter__(self):
-        return self.iterable
-
-    def __len__(self):
-        return self.length
-
-
-DELETED_RECORD = object()
-INDEX_DIR = 'index'
-SEQSTOREBYNUM_NAME = 'seqstore'
