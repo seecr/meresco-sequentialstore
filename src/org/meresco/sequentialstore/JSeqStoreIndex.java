@@ -53,199 +53,227 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.index.sorter.SortingMergePolicy;
+import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.MatchAllDocsQuery;
+import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.FixedBitSet;
 import org.apache.lucene.util.NumericUtils;
 import org.apache.lucene.util.Version;
 
-
 public class JSeqStoreIndex {
-    public FieldType stampType;
-    public IndexWriter writer;
-    public DirectoryReader reader;
-    public IndexSearcher searcher;
+	public FieldType stampType;
+	public IndexWriter writer;
+	public DirectoryReader reader;
+	public IndexSearcher searcher;
 
-    public JSeqStoreIndex(String path) throws IOException {
-        this.stampType = new FieldType();
-        this.stampType.setIndexed(true);
-        this.stampType.setStored(false);
-        this.stampType.setNumericType(FieldType.NumericType.LONG);
-        this.stampType.setIndexOptions(IndexOptions.DOCS_ONLY);
+	public JSeqStoreIndex(String path) throws IOException {
+		this.stampType = new FieldType();
+		this.stampType.setIndexed(true);
+		this.stampType.setStored(false);
+		this.stampType.setNumericType(FieldType.NumericType.LONG);
+		this.stampType.setIndexOptions(IndexOptions.DOCS_ONLY);
 
-        Directory directory = FSDirectory.open(new File(path));
-        IndexWriterConfig config = new IndexWriterConfig(Version.LATEST, null);
-        config.setRAMBufferSizeMB(256.0);  // faster
-        config.setUseCompoundFile(false);  // faster, for Lucene 4.4 and later
-        MergePolicy mergePolicy = config.getMergePolicy();
-        MergePolicy sortingMergePolicy = new SortingMergePolicy(mergePolicy, new Sort(new SortField("value", SortField.Type.LONG)));
-        config.setMergePolicy(sortingMergePolicy);
-        this.writer = new IndexWriter(directory, config);
-        this.reader = DirectoryReader.open(this.writer, true);
-        this.searcher = new IndexSearcher(this.reader);
-    }
+		Directory directory = FSDirectory.open(new File(path));
+		IndexWriterConfig config = new IndexWriterConfig(Version.LATEST, null);
+		config.setRAMBufferSizeMB(256.0); // faster
+		config.setUseCompoundFile(false); // faster, for Lucene 4.4 and later
+		MergePolicy mergePolicy = config.getMergePolicy();
+		MergePolicy sortingMergePolicy = new SortingMergePolicy(mergePolicy,
+				new Sort(new SortField("value", SortField.Type.LONG)));
+		config.setMergePolicy(sortingMergePolicy);
+		this.writer = new IndexWriter(directory, config);
+		this.reader = DirectoryReader.open(this.writer, true);
+		this.searcher = new IndexSearcher(this.reader);
+	}
 
-    public void reopen() throws IOException {
-        DirectoryReader newReader = DirectoryReader.openIfChanged(this.reader, this.writer, true);
-        if (newReader != null) {
-            this.reader.close();
-            this.reader = newReader;
-            this.searcher = new IndexSearcher(this.reader);
-        }
-    }
+	public void reopen() throws IOException {
+		DirectoryReader newReader = DirectoryReader.openIfChanged(this.reader, this.writer, true);
+		if (newReader != null) {
+			this.reader.close();
+			this.reader = newReader;
+			this.searcher = new IndexSearcher(this.reader);
+		}
+	}
 
-    public int length() {
-        // Needs (writer.)commit()
-        return this.writer.numDocs();
-    }
+	public int length() {
+		// Needs (writer.)commit()
+		return this.writer.numDocs();
+	}
 
-    public void commit() throws IOException {
-        if (this.writer != null) {
-            this.writer.commit();
-        }
-    }
+	public void commit() throws IOException {
+		if (this.writer != null) {
+			this.writer.commit();
+		}
+	}
 
-    public void close() {
-        if (this.writer != null) {
-            try {
-                this.writer.close();
-            } catch (IOException e) {
-            } finally {
-                this.writer = null;
-            }
-        }
-        if (this.reader != null) {
-            try {
-                this.reader.close();
-            } catch (IOException e) {
-            } finally {
-                this.reader = null;
-            }
-        }
-    }
+	public void close() {
+		if (this.writer != null) {
+			try {
+				this.writer.close();
+			} catch (IOException e) {
+			} finally {
+				this.writer = null;
+			}
+		}
+		if (this.reader != null) {
+			try {
+				this.reader.close();
+			} catch (IOException e) {
+			} finally {
+				this.reader = null;
+			}
+		}
+	}
 
-    public void setKeyValue(String key, long value) throws IOException {
-        Document doc = new Document();
-        StringField keyField = new StringField("key", key, Field.Store.NO);
-        doc.add(keyField);
-        LongField valueField = new LongField("value", value, this.stampType);
-        doc.add(valueField);
-        doc.add(new NumericDocValuesField("value", value));
-        this.writer.updateDocument(new Term("key", key), doc);
-    }
+	public void setKeyValue(String key, long value) throws IOException {
+		Document doc = new Document();
+		StringField keyField = new StringField("key", key, Field.Store.NO);
+		doc.add(new NumericDocValuesField("key", value));
+		doc.add(keyField);
+		LongField valueField = new LongField("value", value, this.stampType);
+		doc.add(valueField);
+		doc.add(new NumericDocValuesField("value", value));
+		this.writer.updateDocument(new Term("key", key), doc);
+	}
 
-    public void delete(String key) throws IOException {
-        this.writer.deleteDocuments(new Term("key", key));
-    }
+	public void delete(String key) throws IOException {
+		this.writer.deleteDocuments(new Term("key", key));
+	}
 
-    public long getValue(String key) throws IOException {
-        List<AtomicReaderContext> leaves = this.reader.leaves();
-        for (AtomicReaderContext leaf: leaves) {
-            AtomicReader reader = leaf.reader();
-            DocsEnum docsEnum = reader.termDocsEnum(new Term("key", new BytesRef(key)));
-            if (docsEnum == null) {
-                continue;
-            }
-            int docId = docsEnum.nextDoc();
-            if (docId == DocsEnum.NO_MORE_DOCS) {
-                continue;
-            }
-            NumericDocValues numDocValues = reader.getNumericDocValues("value");
-            return numDocValues.get(docId);
-        }
-        return -1;
-    }
+	public long getValue(String key) throws IOException {
+		List<AtomicReaderContext> leaves = this.reader.leaves();
+		for (AtomicReaderContext leaf : leaves) {
+			AtomicReader reader = leaf.reader();
+			DocsEnum docsEnum = reader.termDocsEnum(new Term("key", new BytesRef(key)));
+			if (docsEnum == null) {
+				continue;
+			}
+			int docId = docsEnum.nextDoc();
+			if (docId == DocsEnum.NO_MORE_DOCS) {
+				continue;
+			}
+			NumericDocValues numDocValues = reader.getNumericDocValues("value");
+			return numDocValues.get(docId);
+		}
+		return -1;
+	}
 
-    public PyIterator<String> iterkeys() throws IOException {
-        // Needs this.reopen()
-        List<AtomicReaderContext> leaves = this.reader.leaves();
-        ReaderSlice[] readerSlices = new ReaderSlice[leaves.size()];
-        Terms[] terms = new Terms[leaves.size()];
-        for (int i=0; i<leaves.size(); i++) {
-            AtomicReader reader = leaves.get(i).reader();
-            readerSlices[i] = new ReaderSlice(0, reader.maxDoc(), i);
-            terms[i] = new TermsFilteredByLiveDocs(reader.terms("key"), reader.getLiveDocs());
-        }
-        MultiTerms multiTerms = new MultiTerms(terms, readerSlices);
-        final TermsEnum termsEnum = multiTerms.iterator(null);
+	public FixedBitSet current_keys() throws IOException {
+		this.reopen();
+		final FixedBitSet current_keys = new FixedBitSet(999999); // TODO
+		this.searcher.search(new MatchAllDocsQuery(), new Collector() {
+			NumericDocValues keys = null;
 
-        return new PyIterator<String>() {
-            public String next() {
-                try {
-                    BytesRef term = null;
-                    term = termsEnum.next();
-                    if (term == null) {
-                        return null;
-                    }
-                    return term.utf8ToString();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        };
-    }
+			public boolean acceptsDocsOutOfOrder() {
+				return true;
+			}
 
-    public PyIterator<Long> itervalues() throws IOException {
-        // Needs this.reopen()
-        List<AtomicReaderContext> leaves = this.reader.leaves();
-        ReaderSlice[] readerSlices = new ReaderSlice[leaves.size()];
-        Terms[] terms = new Terms[leaves.size()];
-        for (int i=0; i<leaves.size(); i++) {
-            AtomicReader reader = leaves.get(i).reader();
-            readerSlices[i] = new ReaderSlice(0, reader.maxDoc(), i);
-            terms[i] = new TermsFilteredByLiveDocs(reader.terms("value"), reader.getLiveDocs());
-        }
-        MultiTerms multiTerms = new MultiTerms(terms, readerSlices);
-        final TermsEnum termsEnum = NumericUtils.filterPrefixCodedLongs(multiTerms.iterator(null));
+			public void collect(int doc) throws IOException {
+				current_keys.set((int) keys.get(doc));
+			}
 
-        return new PyIterator<Long>() {
-            public Long next() {
-                try {
-                    BytesRef term = null;
-                    term = termsEnum.next();
-                    if (term == null) {
-                        return null;
-                    }
-                    return NumericUtils.prefixCodedToLong(term);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        };
-    }
+			public void setNextReader(AtomicReaderContext reader) throws IOException {
+				keys = reader.reader().getNumericDocValues("key");
+			}
 
-    public interface PyIterator<T> {
-        public T next();
-    }
+			public void setScorer(Scorer arg0) throws IOException {
+			}
+		});
+		return current_keys;
+	}
 
+	public PyIterator<String> iterkeys() throws IOException {
+		// Needs this.reopen()
+		List<AtomicReaderContext> leaves = this.reader.leaves();
+		ReaderSlice[] readerSlices = new ReaderSlice[leaves.size()];
+		Terms[] terms = new Terms[leaves.size()];
+		for (int i = 0; i < leaves.size(); i++) {
+			AtomicReader reader = leaves.get(i).reader();
+			readerSlices[i] = new ReaderSlice(0, reader.maxDoc(), i);
+			terms[i] = new TermsFilteredByLiveDocs(reader.terms("key"), reader.getLiveDocs());
+		}
+		MultiTerms multiTerms = new MultiTerms(terms, readerSlices);
+		final TermsEnum termsEnum = multiTerms.iterator(null);
 
-    class TermsFilteredByLiveDocs extends FilterTerms {
-        Bits liveDocs;
+		return new PyIterator<String>() {
+			public String next() {
+				try {
+					BytesRef term = null;
+					term = termsEnum.next();
+					if (term == null) {
+						return null;
+					}
+					return term.utf8ToString();
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
+			}
+		};
+	}
 
-        public TermsFilteredByLiveDocs(Terms terms, Bits liveDocs) {
-            super(terms);
-            this.liveDocs = liveDocs;
-        }
+	public PyIterator<Long> itervalues() throws IOException {
+		// Needs this.reopen()
+		List<AtomicReaderContext> leaves = this.reader.leaves();
+		ReaderSlice[] readerSlices = new ReaderSlice[leaves.size()];
+		Terms[] terms = new Terms[leaves.size()];
+		for (int i = 0; i < leaves.size(); i++) {
+			AtomicReader reader = leaves.get(i).reader();
+			readerSlices[i] = new ReaderSlice(0, reader.maxDoc(), i);
+			terms[i] = new TermsFilteredByLiveDocs(reader.terms("value"), reader.getLiveDocs());
+		}
+		MultiTerms multiTerms = new MultiTerms(terms, readerSlices);
+		final TermsEnum termsEnum = NumericUtils.filterPrefixCodedLongs(multiTerms.iterator(null));
 
-        @Override
-        public TermsEnum iterator(TermsEnum original) throws IOException {
-            final TermsEnum termsEnum = this.in.iterator(null);
+		return new PyIterator<Long>() {
+			public Long next() {
+				try {
+					BytesRef term = null;
+					term = termsEnum.next();
+					if (term == null) {
+						return null;
+					}
+					return NumericUtils.prefixCodedToLong(term);
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
+			}
+		};
+	}
 
-            return new FilteredTermsEnum(termsEnum, false) {
-                @Override
-                public AcceptStatus accept(BytesRef term) throws IOException {
-                    DocsEnum docsEnum = termsEnum.docs(TermsFilteredByLiveDocs.this.liveDocs, null, DocsEnum.FLAG_NONE);
-                    int docId = docsEnum.nextDoc();
-                    if (docId == DocsEnum.NO_MORE_DOCS) {
-                        return AcceptStatus.NO;
-                    }
-                    return AcceptStatus.YES;
-                }
-            };
-        }
-    }
+	public interface PyIterator<T> {
+		public T next();
+	}
+
+	class TermsFilteredByLiveDocs extends FilterTerms {
+		Bits liveDocs;
+
+		public TermsFilteredByLiveDocs(Terms terms, Bits liveDocs) {
+			super(terms);
+			this.liveDocs = liveDocs;
+		}
+
+		@Override
+		public TermsEnum iterator(TermsEnum original) throws IOException {
+			final TermsEnum termsEnum = this.in.iterator(null);
+
+			return new FilteredTermsEnum(termsEnum, false) {
+				@Override
+				public AcceptStatus accept(BytesRef term) throws IOException {
+					DocsEnum docsEnum = termsEnum.docs(TermsFilteredByLiveDocs.this.liveDocs, null, DocsEnum.FLAG_NONE);
+					int docId = docsEnum.nextDoc();
+					if (docId == DocsEnum.NO_MORE_DOCS) {
+						return AcceptStatus.NO;
+					}
+					return AcceptStatus.YES;
+				}
+			};
+		}
+	}
 }

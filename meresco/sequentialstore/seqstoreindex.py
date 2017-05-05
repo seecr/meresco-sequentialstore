@@ -33,6 +33,9 @@ class SeqStoreIndex(object):
         except KeyError:
             return default
 
+    def reopen(self):
+        self._index.reopen()
+
     def iterkeys(self):
         # WARNING: Performance penalty, forcefully reopens reader.
         self._reopen()

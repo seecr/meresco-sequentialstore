@@ -89,68 +89,20 @@ class SequentialStorage(object):
         result = self._store.getMultiple(jarray, ignoreMissing)
         return ((keys2Identifiers.get(int(key)), self._unwrap(data).data) for key, data in result)
 
-    def copyTo(self, target, skipDataCheck=False, verbose=False):
-        self._store.copyTo(target=target, keys=self._index.itervalues(), skipDataCheck=skipDataCheck, verbose=verbose)
-
-    @classmethod
-    def gc(cls, directory, targetDir=None, skipDataCheck=False, verbose=False):
-        """Works only for closed SequentialStorage for now."""
-        if not isdir(join(directory, INDEX_DIR)) or not isfile(join(directory, SEQSTOREBYNUM_NAME)):
-            raise ValueError('Directory %s does not belong to a %s.' % (directory, cls))
-        targetDir = targetDir or directory
-        if not isdir(targetDir):
-            raise ValueError("'targetDir' %s is not an existing directory." % targetDir)
-        s = cls(directory)
-        tmpSeqStoreFile = join(targetDir, 'seqstore~')
-        if isfile(tmpSeqStoreFile):
-            remove(tmpSeqStoreFile)
-        tmpSequentialStorageByNum = _SequentialStorageByNum(tmpSeqStoreFile)
-        s.copyTo(tmpSequentialStorageByNum, skipDataCheck=skipDataCheck, verbose=verbose)
-        s.close()
-        tmpSequentialStorageByNum.close()
-        rename(tmpSeqStoreFile, join(targetDir, 'seqstore'))
-        if verbose:
-            if directory == targetDir:
-                sys.stderr.write('Finished garbage-collecting SequentialStorage.\n\n')
-            else:
-                sys.stderr.write("To finish garbage-collecting the SequentialStorage, now replace '%s' with '%s' manually.\n\n" % (join(directory, 'seqstore'), join(targetDir, 'seqstore')))
-            sys.stderr.flush()
-
-    def close(self):
-        if self._store is None:
-            return
-        self._store.close()
-        self._store = None
-        self._index.close()
-        self._index = None
+    def gc(self, verbose=False):
+        self._index.reopen()
+        current_keys = self._index._index.current_keys()
+        self._store._store.delete_all_but(current_keys)
+        self._store.reopen()
 
     def commit(self):
         self._store.flush()
         self._index.commit()
 
-    @classmethod
-    def recoverIndexFromData(cls, directory, verbose=False):
-        indexDir = join(directory, INDEX_DIR)
-        assert not isdir(indexDir), "To allow for recovery, the index directory '%s' should be removed first." % indexDir
-        tmpIndexDir = join(directory, INDEX_DIR + '.tmp')
-        if isdir(tmpIndexDir):
-            rmtree(tmpIndexDir)
-        index = _Index(tmpIndexDir)
-        seqStorageByNum = _SequentialStorageByNum(join(directory, SEQSTOREBYNUM_NAME))
-        count = 0
-        for key, data in seqStorageByNum.range():
-            count += 1
-            if verbose and count % 2000 == 0:
-                sys.stderr.write('\rRecovered %s items, current key: %s, last key: %s' % (count, key, seqStorageByNum.lastKey))
-                sys.stderr.flush()
-            event = cls._unwrap(data)
-            identifier = str(event.identifier)
-            if event.delete:
-                del index[identifier]
-            else:
-                index[identifier] = key
-        index.close()
-        rename(tmpIndexDir, indexDir)
+    def close(self):
+        self.commit()
+        self._store.close()
+        self._index.close()
 
     def events(self):
         self._store.reopen();
@@ -181,6 +133,4 @@ class SequentialStorage(object):
             f.write(self.version)
 
 Event = namedtuple('Event', ['identifier', 'data', 'delete'])
-
-
 
