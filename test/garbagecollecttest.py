@@ -112,7 +112,8 @@ class GarbageCollectTest(SeecrTestCase):
         self.assertEquals('data2698', s['id:2698'])
         self.assertEquals('rewrite2699', s['id:2699'])
 
-        self.assertTiming(0.10, t1 - t0, 0.50)
+        #self.assertTiming(0.10, t1 - t0, 0.50) # with file copy
+        self.assertTiming(0.01, t1 - t0, 0.02) # with lucene; most is reopen()
 
     def testPerformance(self):
         data = randomString(200)
@@ -134,7 +135,8 @@ class GarbageCollectTest(SeecrTestCase):
             prof.close()
 
         print time() - t0
-        self.assertTiming(0.2, time() - t0, 0.5)
+        #self.assertTiming(0.2, time() - t0, 0.5) # with file copy
+        self.assertTiming(2.0, time() - t0, 3.0) # with lucene; most is reopen()
 
     def TAKES_ABOUT_15_MINUTES_testRatherLargeSequentialStorage(self):
         print 'Needs 210MB'

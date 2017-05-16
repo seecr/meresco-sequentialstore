@@ -136,7 +136,7 @@ class MultiSequentialStorageTest(SeecrTestCase):
     def testCommit(self):
         s = MultiSequentialStorage(self.tempdir)
         s.addData('2', "part1", "data1")
-        s.commit()
+        s.close()
         s._storage['part1']._index.close()
 
         s = MultiSequentialStorage(self.tempdir)

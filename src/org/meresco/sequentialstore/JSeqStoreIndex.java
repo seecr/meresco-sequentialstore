@@ -134,12 +134,10 @@ public class JSeqStoreIndex {
 
 	public void setKeyValue(String key, long value) throws IOException {
 		Document doc = new Document();
-		StringField keyField = new StringField("key", key, Field.Store.NO);
 		doc.add(new NumericDocValuesField("key", value));
-		doc.add(keyField);
-		LongField valueField = new LongField("value", value, this.stampType);
-		doc.add(valueField);
+		doc.add(new StringField("key", key, Field.Store.NO));
 		doc.add(new NumericDocValuesField("value", value));
+		doc.add(new LongField("value", value, this.stampType));
 		this.writer.updateDocument(new Term("key", key), doc);
 	}
 

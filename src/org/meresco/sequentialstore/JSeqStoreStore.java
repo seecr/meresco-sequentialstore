@@ -1,117 +1,50 @@
 package org.meresco.sequentialstore;
 
-import java.io.File;
 import java.io.IOException;
 
+import org.apache.lucene.document.BinaryDocValuesField;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.IntField;
-import org.apache.lucene.document.StoredField;
-import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.FilteredTermsEnum;
-import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.MergePolicy;
-import org.apache.lucene.index.Terms;
-import org.apache.lucene.index.TermsEnum;
-import org.apache.lucene.index.sorter.SortingMergePolicy;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.MultiTermQuery;
+import org.apache.lucene.index.FieldInfo.IndexOptions;
 import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
-import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.util.AttributeSource;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.NumericUtils;
-import org.apache.lucene.util.Version;
-
-class LuceneIndex {
-	DirectoryReader reader;
-	IndexWriter writer;
-	public IndexSearcher searcher;
-
-	LuceneIndex(String path) throws IOException {
-		Directory directory = FSDirectory.open(new File(path));
-		IndexWriterConfig config = new IndexWriterConfig(Version.LATEST, null);
-		config.setRAMBufferSizeMB(256.0); // faster
-		config.setUseCompoundFile(false); // faster, for Lucene 4.4 and later
-		MergePolicy mergePolicy = config.getMergePolicy();
-		MergePolicy sortingMergePolicy = new SortingMergePolicy(mergePolicy,
-				new Sort(new SortField("value", SortField.Type.LONG)));
-		config.setMergePolicy(sortingMergePolicy);
-		this.writer = new IndexWriter(directory, config);
-		this.reader = DirectoryReader.open(this.writer, true);
-		this.searcher = new IndexSearcher(this.reader);
-	}
-
-	public void reopen() throws IOException {
-		DirectoryReader newReader = DirectoryReader.openIfChanged(this.reader, this.writer, true);
-		if (newReader != null) {
-			this.reader.close();
-			this.reader = newReader;
-			this.searcher = new IndexSearcher(this.reader);
-		}
-	}
-
-	public void close() {
-		if (this.writer != null) {
-			try {
-				this.writer.close();
-			} catch (IOException e) {
-			} finally {
-				this.writer = null;
-			}
-		}
-		if (this.reader != null) {
-			try {
-				this.reader.close();
-			} catch (IOException e) {
-			} finally {
-				this.reader = null;
-			}
-		}
-	}
-
-	public void addDocument(Document doc) throws IOException {
-		this.writer.addDocument(doc);
-	}
-
-	public int find_docId(Query query) throws IOException {
-		TopDocs results = this.searcher.search(query, 1);
-		if (results.totalHits > 0) {
-			return results.scoreDocs[0].doc;
-		}
-		return -1;
-	}
-
-	public Document search(Query query) throws IOException {
-		int docid = this.find_docId(query);
-		if (docid >= 0)
-			return this.get_document(docid);
-		return null;
-	}
-
-	public Document get_document(int docId) throws IOException {
-		return this.reader.document(docId);
-	}
-
-	public int maxDoc() {
-		return this.writer.maxDoc();
-	}
-
-	public void flush() throws IOException {
-		this.writer.commit();
-	}
-};
+import org.apache.lucene.util.FixedBitSet;
 
 public class JSeqStoreStore {
 
 	private LuceneIndex index;
+	private Document doc = new Document();
+	private IntField key_field;
+	private BinaryDocValuesField data_field;
+
+	public JSeqStoreStore(String path) throws IOException {
+		this.index = new LuceneIndex(path, new SortField("key", SortField.Type.INT));
+		FieldType keyType = new FieldType();
+		keyType.setNumericType(FieldType.NumericType.INT);
+		keyType.setNumericPrecisionStep(Integer.MAX_VALUE);
+		keyType.setStored(true);
+		keyType.setIndexed(true);
+		keyType.setOmitNorms(true);
+		keyType.setIndexOptions(IndexOptions.DOCS_ONLY);
+		this.key_field = new IntField("key", -1, keyType);
+		this.data_field = new BinaryDocValuesField("data", new BytesRef());
+		doc.add(data_field);
+		doc.add(key_field);
+	}
+
+	public void add(int key, String data) throws IOException {
+		this.key_field.setIntValue(key);
+		this.data_field.setBytesValue(new BytesRef(data));
+		this.index.addDocument(doc);
+	}
+
+	public void delete_all_but(Bits current_keys) throws IOException {
+		this.index.delete_all_but(current_keys);
+	}
 
 	public int lastKey() throws IOException {
 		int maxDoc = this.index.maxDoc();
@@ -120,31 +53,12 @@ public class JSeqStoreStore {
 		return this.index.get_document(maxDoc - 1).getField("key").numericValue().intValue();
 	}
 
-	public JSeqStoreStore(String path) throws IOException {
-		this.index = new LuceneIndex(path);
-	}
-
-	public void add(int key, String data) throws IOException {
-		Document doc = new Document();
-		// doc.add(new StringField("key", "" + key, Store.YES));
-		doc.add(new StoredField("data", data)); // TODO use BinaryDocValues,
-												// want StoredField douwt alles
-												// in de Tree (memory).
-		FieldType keyType = new FieldType();
-		keyType.setNumericType(FieldType.NumericType.INT);
-		keyType.setNumericPrecisionStep(Integer.MAX_VALUE);
-		keyType.setStored(true);
-		keyType.setIndexed(true);
-		doc.add(new IntField("key", key, keyType));
-		this.index.addDocument(doc);
-	}
-
 	public String get(int key) throws IOException {
 		Query q = NumericRangeQuery.newIntRange("key", Integer.MAX_VALUE, key, key, true, true);
-		Document doc = this.index.search(q);
-		if (doc == null)
+		String value = this.index.search_binary_value(q, "data");
+		if (value == null)
 			throw new RuntimeException("IndexError," + key);
-		return doc.get("data");
+		return value;
 	}
 
 	public void reopen() throws IOException {
@@ -157,37 +71,6 @@ public class JSeqStoreStore {
 
 	public void close() {
 		this.index.close();
-	}
-
-	public void delete_all_but(final Bits current_keys) throws IOException {
-		Query q = new MultiTermQuery("key") {
-
-			@Override
-			protected TermsEnum getTermsEnum(Terms terms, AttributeSource attrs) throws IOException {
-				return new FilterKeys(terms.iterator(null), current_keys);
-			}
-
-			@Override
-			public String toString(String arg0) {
-				return null;
-			}
-		};
-		this.index.writer.deleteDocuments(q);
-	}
-
-	private final class FilterKeys extends FilteredTermsEnum {
-		private final Bits current_keys;
-
-		private FilterKeys(TermsEnum termsEnum, Bits current_keys) {
-			super(termsEnum, false);
-			this.current_keys = current_keys;
-		}
-
-		@Override
-		protected AcceptStatus accept(BytesRef term) throws IOException {
-			int key = NumericUtils.prefixCodedToInt(term);
-			return current_keys.get(key) ? AcceptStatus.NO : AcceptStatus.YES;
-		}
 	}
 
 	public Iterator<String> getMultiple(final int[] keys, final boolean ignore_missing) throws IOException {
@@ -234,28 +117,30 @@ public class JSeqStoreStore {
 		public String data;
 		public int key;
 
-		public Event(Document doc) {
-			this.data = doc.get("data");
-			this.key = doc.getField("key").numericValue().intValue();
+		public Event(int doc_id) throws IOException {
+			this.data = index.get_binary_value(doc_id, "data");
+			this.key = index.get_document(doc_id).getField("key").numericValue().intValue();
 		}
 	}
 
 	public Iterator<Event> range(int start_key, int stop_key, boolean inclusive) throws IOException {
 		Query q1 = NumericRangeQuery.newIntRange("key", Integer.MAX_VALUE, start_key, stop_key == -1 ? null : stop_key,
 				true, inclusive);
-		final TopDocs results = this.index.searcher.search(q1, Integer.MAX_VALUE);
+		final FixedBitSet doc_ids = this.index.find_doc_ids(q1, Integer.MAX_VALUE);
+
 		return new Iterator<Event>() {
-			int i = 0;
+			int doc_id = 0;
 
 			public Event next() {
-				if (i >= results.totalHits)
+				doc_id = doc_ids.nextSetBit(doc_id);
+				if (doc_id == -1)
 					return null;
 				try {
-					return new Event(JSeqStoreStore.this.index.get_document(results.scoreDocs[i].doc));
+					return new Event(doc_id);
 				} catch (IOException e) {
 					throw new RuntimeException(e);
 				} finally {
-					i++;
+					doc_id++;
 				}
 			}
 		};
