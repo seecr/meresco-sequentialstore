@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014, 2017 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -31,12 +31,13 @@ mydir = dirname(abspath(__file__))                                              
 srcDir = join(dirname(dirname(mydir)), 'src')                                    #DO_NOT_DISTRIBUTE
 libDir = join(dirname(dirname(mydir)), 'lib')                                    #DO_NOT_DISTRIBUTE
 sofile = join(libDir, 'meresco_sequentialstore', '_meresco_sequentialstore.so')  #DO_NOT_DISTRIBUTE
-javaSources = join(srcDir, 'org','meresco','sequentialstore', '*.java')          #DO_NOT_DISTRIBUTE
-lastMtime = max(stat(f).st_mtime for f in glob(javaSources))                     #DO_NOT_DISTRIBUTE
-if not isfile(sofile) or stat(sofile).st_mtime < lastMtime:                      #DO_NOT_DISTRIBUTE
-    result = system('cd %s; ./build.sh' % srcDir)                                #DO_NOT_DISTRIBUTE
-    if result:                                                                   #DO_NOT_DISTRIBUTE
-        exit(result)                                                             #DO_NOT_DISTRIBUTE
+javaSources = glob(join(srcDir, 'org','meresco','sequentialstore', '*.java'))    #DO_NOT_DISTRIBUTE
+if javaSources:                                                                  #DO_NOT_DISTRIBUTE
+    lastMtime = max(stat(f).st_mtime for f in javaSources)                       #DO_NOT_DISTRIBUTE
+    if not isfile(sofile) or stat(sofile).st_mtime < lastMtime:                  #DO_NOT_DISTRIBUTE
+        result = system('cd %s; ./build.sh' % srcDir)                            #DO_NOT_DISTRIBUTE
+        if result:                                                               #DO_NOT_DISTRIBUTE
+            exit(result)                                                         #DO_NOT_DISTRIBUTE
 sysPath.insert(0, libDir)                                                        #DO_NOT_DISTRIBUTE
 
 from __version__ import VERSION

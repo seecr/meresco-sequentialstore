@@ -63,7 +63,6 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
     def testSpeedAddsAndGetitems(self):
         N = 5000000
         directory = self.tempdir
-        directory = "/data/try_seqstore"
 
         if isdir(directory):
             rmtree(directory)
@@ -83,8 +82,10 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
                 if i % 1000 == 0:
                     print i, i / T
             print "write", T / N
+            t1 = time()
+            c.commit()
+            print 'commit took', time() - t1
             c.close()
-
         #from seecr.utils.profileit import profile
         #profile(f)
         f()

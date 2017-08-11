@@ -51,23 +51,16 @@ def lazyImport():
     if imported:
         return
     importVM()
-    # from meresco_sequentialstore import initVM as initMerescoSequentialStore
-    # initMerescoSequentialStore()
 
     from java.lang import Long
     from java.io import File
-    from org.apache.lucene.document import Document, StringField, Field, LongField, FieldType, NumericDocValuesField
+    from org.apache.lucene.document import Document, StringField, Field, LongField, FieldType, NumericDocValuesField, BinaryDocValuesField
     from org.apache.lucene.search import IndexSearcher, TermQuery, Sort, SortField
-    from org.apache.lucene.index import DirectoryReader, Term, IndexWriter, IndexWriterConfig
+    from org.apache.lucene.index import DirectoryReader, Term, IndexWriter, IndexWriterConfig, ReaderUtil
     from org.apache.lucene.index.sorter import SortingMergePolicy
     from org.apache.lucene.store import FSDirectory
-    from org.apache.lucene.util import Version
+    from org.apache.lucene.util import Version, BytesRef
     from org.apache.lucene.analysis.core import WhitespaceAnalyzer
-
-    UNINDEXED_TYPE = FieldType()
-    UNINDEXED_TYPE.setIndexed(False)
-    UNINDEXED_TYPE.setStored(True)
-    UNINDEXED_TYPE.setTokenized(False)
 
     imported = True
     globals().update(locals())
@@ -83,13 +76,13 @@ class SequentialStorage(object):
             makedirs(directory)
         self._versionFormatCheck()
         self._writer, self._reader, self._searcher = self._getLucene()
-        self._latestModifications = set()
+        self._latestModifications = {}
         self._newestKey = self._newestKeyFromIndex()
 
         self._identifierField = StringField(_IDENTIFIER_FIELD, "", Field.Store.NO)
         self._keyField = LongField(_KEY_FIELD, 0L, Field.Store.YES)
         self._numericKeyField = NumericDocValuesField(_NUMERIC_KEY_FIELD, 0L)
-        self._dataField = Field(_DATA_FIELD, "", UNINDEXED_TYPE)
+        self._dataField = BinaryDocValuesField(_DATA_FIELD, BytesRef())
         self._doc = Document()
         self._doc.add(self._identifierField)
         self._doc.add(self._keyField)
@@ -97,27 +90,36 @@ class SequentialStorage(object):
         self._doc.add(self._dataField)
 
     def add(self, identifier, data):
+        if identifier is None:
+            raise ValueError('identifier should not be None')
+        if data is None:
+            raise ValueError('data should not be None')
         identifier = str(identifier)
-        data = data if data is None else str(data)
+        data = str(data)
         newKey = self._newKey()
         self._identifierField.setStringValue(identifier)
         self._keyField.setLongValue(newKey)
         self._numericKeyField.setLongValue(newKey)
-        self._dataField.setStringValue(data)
+        self._dataField.setBytesValue(BytesRef(data))
         self._writer.updateDocument(Term(_IDENTIFIER_FIELD, identifier), self._doc)
-        self._latestModifications.add(identifier)
+        self._latestModifications[identifier] = data
 
     def delete(self, identifier):
         identifier = str(identifier)
         self._writer.deleteDocuments(Term(_IDENTIFIER_FIELD, identifier))
-        self._latestModifications.add(identifier)
+        self._latestModifications[identifier] = DELETED_RECORD
 
     def __getitem__(self, identifier):
         identifier = str(identifier)
-        doc = self._getDocument(identifier)
-        if doc is None:
+        value = self._latestModifications.get(identifier)
+        if value is DELETED_RECORD:
             raise KeyError(identifier)
-        return str(doc.getField(_DATA_FIELD).stringValue())
+        if not value is None:
+            return value
+        data = self._getData(identifier)
+        if data is None:
+            raise KeyError(identifier)
+        return str(data)
 
     def get(self, identifier, default=None):
         try:
@@ -128,13 +130,13 @@ class SequentialStorage(object):
     def getMultiple(self, identifiers, ignoreMissing=False):
         for identifier in identifiers:
             identifier = str(identifier)
-            doc = self._getDocument(identifier)
-            if doc is None:
+            try:
+                data = self[identifier]
+            except KeyError:
                 if ignoreMissing:
                     continue
-                else:
-                    raise KeyError(identifier)
-            yield identifier, str(doc.getField(_DATA_FIELD).stringValue())
+                raise
+            yield identifier, data
 
     def close(self):
         if self._writer is None:
@@ -149,6 +151,7 @@ class SequentialStorage(object):
     def commit(self):
         self._writer.commit()
         self._reopen()
+
 
     def _newKey(self):
         self._newestKey += 1L
@@ -165,13 +168,22 @@ class SequentialStorage(object):
         newestKey = doc.getField(_KEY_FIELD).numericValue().longValue()
         return newestKey
 
-    def _getDocument(self, identifier):
+    def _getData(self, identifier):
+        docId = self._getDocId(identifier)
+        leaves = self._reader.leaves()
+        readerContext = leaves.get(ReaderUtil.subIndex(docId, leaves))
+        dataBinaryDocValues = readerContext.reader().getBinaryDocValues(_DATA_FIELD);
+        if dataBinaryDocValues is None:
+            raise KeyError(identifier);
+        dataByteRef = dataBinaryDocValues.get(docId - readerContext.docBase)
+        return ''.join(chr(o) for o in dataByteRef.bytes)  # TODO: only this last part is terribly inefficient obviously; seems no other option than to delegate to Java itself.
+
+    def _getDocId(self, identifier):
         searcher = self._getSearcher(identifier)
         results = searcher.search(TermQuery(Term(_IDENTIFIER_FIELD, identifier)), 1)
         if results.totalHits == 0:
-            return None
-        docId = results.scoreDocs[0].doc
-        return searcher.doc(docId) if docId is not None else None
+            raise KeyError(identifier)
+        return results.scoreDocs[0].doc
 
     def _getSearcher(self, identifier=None):
         modifications = len(self._latestModifications)
@@ -222,3 +234,5 @@ _IDENTIFIER_FIELD = "identifier"
 _KEY_FIELD = "key"
 _NUMERIC_KEY_FIELD = "key"
 _DATA_FIELD = "data"
+
+DELETED_RECORD = object()

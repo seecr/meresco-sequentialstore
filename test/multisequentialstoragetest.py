@@ -137,7 +137,7 @@ class MultiSequentialStorageTest(SeecrTestCase):
     def testCommit(self):
         s = MultiSequentialStorage(self.tempdir)
         s.addData('2', "part1", "data1")
-        self.assertEquals(set({'2'}), s._storage['part1']._latestModifications)
+        self.assertEquals({'2': 'data1'}, s._storage['part1']._latestModifications)
         s.commit()
-        self.assertEquals(set(), s._storage['part1']._latestModifications)
+        self.assertEquals({}, s._storage['part1']._latestModifications)
         self.assertEquals('data1', s.getData('2', 'part1'))
