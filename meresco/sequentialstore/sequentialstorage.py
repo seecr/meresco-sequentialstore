@@ -30,6 +30,7 @@ from os import getenv, makedirs, listdir, rename, remove
 from os.path import join, isdir, isfile
 from shutil import rmtree
 from warnings import warn
+from itertools import islice
 
 
 imported = False
@@ -52,7 +53,7 @@ def lazyImport():
         return
     importVM()
 
-    from java.lang import Long
+    from lucene import JArray
     from java.io import File
     from org.apache.lucene.document import Document, StringField, Field, LongField, FieldType, NumericDocValuesField, BinaryDocValuesField
     from org.apache.lucene.search import IndexSearcher, TermQuery, Sort, SortField
@@ -60,7 +61,6 @@ def lazyImport():
     from org.apache.lucene.index.sorter import SortingMergePolicy
     from org.apache.lucene.store import FSDirectory
     from org.apache.lucene.util import Version, BytesRef
-    from org.apache.lucene.analysis.core import WhitespaceAnalyzer
 
     imported = True
     globals().update(locals())
@@ -69,14 +69,17 @@ def lazyImport():
 class SequentialStorage(object):
     version = '3'
 
-    def __init__(self, directory, commitCount=None):
+    def __init__(self, directory, maxModifications=None):
         lazyImport()
         self._directory = directory
         if not isdir(directory):
             makedirs(directory)
         self._versionFormatCheck()
+        self._maxModifications = DEFAULT_MAX_MODIFICATIONS if maxModifications is None else maxModifications
         self._writer, self._reader, self._searcher = self._getLucene()
         self._latestModifications = {}
+        self.gets = 0
+        self.cacheHits = 0
         self._newestKey = self._newestKeyFromIndex()
 
         self._identifierField = StringField(_IDENTIFIER_FIELD, "", Field.Store.NO)
@@ -100,9 +103,11 @@ class SequentialStorage(object):
         self._identifierField.setStringValue(identifier)
         self._keyField.setLongValue(newKey)
         self._numericKeyField.setLongValue(newKey)
-        self._dataField.setBytesValue(BytesRef(data))
+        self._dataField.setBytesValue(BytesRef(JArray('byte')(data)))
         self._writer.updateDocument(Term(_IDENTIFIER_FIELD, identifier), self._doc)
         self._latestModifications[identifier] = data
+        if len(self._latestModifications) > self._maxModifications:
+            self.commit()
 
     def delete(self, identifier):
         identifier = str(identifier)
@@ -110,11 +115,13 @@ class SequentialStorage(object):
         self._latestModifications[identifier] = DELETED_RECORD
 
     def __getitem__(self, identifier):
+        self.gets += 1
         identifier = str(identifier)
         value = self._latestModifications.get(identifier)
-        if value is DELETED_RECORD:
-            raise KeyError(identifier)
         if not value is None:
+            self.cacheHits += 1
+            if value is DELETED_RECORD:
+                raise KeyError(identifier)
             return value
         data = self._getData(identifier)
         if data is None:
@@ -176,7 +183,8 @@ class SequentialStorage(object):
         if dataBinaryDocValues is None:
             raise KeyError(identifier);
         dataByteRef = dataBinaryDocValues.get(docId - readerContext.docBase)
-        return ''.join(chr(o) for o in dataByteRef.bytes)  # TODO: only this last part is terribly inefficient obviously; seems no other option than to delegate to Java itself.
+        bytes = dataByteRef.bytes
+        return ''.join(chr(o & 0xFF) for o in islice(bytes, dataByteRef.offset, dataByteRef.length))  # FIXME: how to make this more efficient? Even delegating to Java doesn't seem to provide a solution to safely communicate byte arrays.
 
     def _getDocId(self, identifier):
         searcher = self._getSearcher(identifier)
@@ -189,7 +197,7 @@ class SequentialStorage(object):
         modifications = len(self._latestModifications)
         if modifications == 0:
             return self._searcher
-        if identifier and str(identifier) not in self._latestModifications and modifications < _MAX_MODIFICATIONS:
+        if identifier and str(identifier) not in self._latestModifications and modifications < self._maxModifications:
             return self._searcher
         self._reopen()
         return self._searcher
@@ -200,6 +208,8 @@ class SequentialStorage(object):
             self._reader.close()
             self._reader = newreader
             self._searcher = IndexSearcher(newreader)
+            # print 'clear latest modifications'
+            # import sys; sys.stdout.flush()
             self._latestModifications.clear()
 
     def _versionFormatCheck(self):
@@ -228,7 +238,7 @@ class SequentialStorage(object):
         return writer, reader, searcher
 
 
-_MAX_MODIFICATIONS = 10000
+DEFAULT_MAX_MODIFICATIONS = 10000
 
 _IDENTIFIER_FIELD = "identifier"
 _KEY_FIELD = "key"

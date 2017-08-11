@@ -74,6 +74,16 @@ class SequentialStorageTest(SeecrTestCase):
         sequentialStorageReloaded = SequentialStorage(self.tempdir)
         self.assertEquals([('1', 'x'), ('2', 'y')], list(sequentialStorageReloaded.getMultiple(identifiers=[1, 2])))
 
+    def testDataNotRequiredToComplyEncoding(self):
+        s = ''.join(chr(x) for x in range(0, 256)) * 3
+        # s = ''.join(chr(0) for x in range(0, 256)) * 3
+        sequentialStorage = SequentialStorage(self.tempdir)
+        sequentialStorage.add(identifier='432', data=s)
+        sequentialStorage.close()
+
+        sequentialStorageReloaded = SequentialStorage(self.tempdir)
+        self.assertEquals(s, sequentialStorageReloaded['432'])
+
     def testGetMultipleDifferentOrder(self):
         sequentialStorage = SequentialStorage(self.tempdir)
         sequentialStorage.add(identifier='def', data="1")
