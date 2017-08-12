@@ -180,4 +180,4 @@ class SequentialStorageTest(SeecrTestCase):
             SequentialStorage(self.tempdir)
             self.fail()
         except Exception, e:
-            self.assertTrue(repr(e).startswith('JavaError(<Throwable: org.apache.lucene.store.LockObtainFailedException: Lock obtain timed out: NativeFSLock'), e)
+            self.assertTrue(repr(e).startswith('JavaError(<Throwable: org.apache.lucene.store.LockObtainFailedException: Lock held by this virtual machine: %s' % self.tempdir), e)

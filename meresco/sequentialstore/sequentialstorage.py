@@ -40,7 +40,7 @@ def importVM():
         warn("Using '4g' as maxheap for lucene.initVM(). To override use PYLUCENE_MAXHEAP environment variable.")
     from lucene import initVM, getVMEnv
     try:
-        VM = initVM(maxheap=maxheap, vmargs='-agentlib:hprof=heap=sites')
+        VM = initVM(maxheap=maxheap) #, vmargs='-agentlib:hprof=heap=sites')
     except ValueError:
         VM = getVMEnv()
     return VM
@@ -54,10 +54,10 @@ def lazyImport():
 
     from lucene import JArray
     from java.io import File
-    from org.apache.lucene.document import Document, StringField, Field, LongField, FieldType, NumericDocValuesField, BinaryDocValuesField
+    from java.nio.file import Paths
+    from org.apache.lucene.document import Document, StringField, Field, LongPoint, StoredField, NumericDocValuesField, BinaryDocValuesField
     from org.apache.lucene.search import IndexSearcher, TermQuery, Sort, SortField
     from org.apache.lucene.index import DirectoryReader, Term, IndexWriter, IndexWriterConfig, ReaderUtil
-    from org.apache.lucene.index.sorter import SortingMergePolicy
     from org.apache.lucene.store import FSDirectory
     from org.apache.lucene.util import Version, BytesRef
 
@@ -82,12 +82,12 @@ class SequentialStorage(object):
         self._newestKey = self._newestKeyFromIndex()
 
         self._identifierField = StringField(_IDENTIFIER_FIELD, "", Field.Store.NO)
-        self._keyField = LongField(_KEY_FIELD, 0L, Field.Store.YES)
+        self._storedKeyField = StoredField(_KEY_FIELD, 0L)
         self._numericKeyField = NumericDocValuesField(_NUMERIC_KEY_FIELD, 0L)
         self._dataField = BinaryDocValuesField(_DATA_FIELD, BytesRef())
         self._doc = Document()
         self._doc.add(self._identifierField)
-        self._doc.add(self._keyField)
+        self._doc.add(self._storedKeyField)
         self._doc.add(self._numericKeyField)
         self._doc.add(self._dataField)
 
@@ -100,7 +100,7 @@ class SequentialStorage(object):
         data = str(data)
         newKey = self._newKey()
         self._identifierField.setStringValue(identifier)
-        self._keyField.setLongValue(newKey)
+        self._storedKeyField.setLongValue(newKey)
         self._numericKeyField.setLongValue(newKey)
         self._dataField.setBytesValue(pyStrToBytesRef(data))
         self._writer.updateDocument(Term(_IDENTIFIER_FIELD, identifier), self._doc)
@@ -108,10 +108,14 @@ class SequentialStorage(object):
         if len(self._latestModifications) > self._maxModifications:
             self.commit()
 
+    __setitem__ = add
+
     def delete(self, identifier):
         identifier = str(identifier)
         self._writer.deleteDocuments(Term(_IDENTIFIER_FIELD, identifier))
         self._latestModifications[identifier] = DELETED_RECORD
+
+    __delitem__ = delete
 
     def __getitem__(self, identifier):
         self.gets += 1
@@ -143,6 +147,8 @@ class SequentialStorage(object):
                     continue
                 raise
             yield identifier, data
+
+    # desirable: iteritems, iterkeys, itervalues
 
     def close(self):
         if self._writer is None:
@@ -221,15 +227,13 @@ class SequentialStorage(object):
             f.write(self.version)
 
     def _getLucene(self):
-        directory = FSDirectory.open(File(self._directory))
-        config = IndexWriterConfig(Version.LATEST, None)
+        directory = FSDirectory.open(Paths.get(self._directory))
+        config = IndexWriterConfig()
         config.setRAMBufferSizeMB(256.0) # faster
         config.setUseCompoundFile(False) # faster, for Lucene 4.4 and later
         # TODO: set max segment size?
 
-        mergePolicy = config.getMergePolicy()
-        sortingMergePolicy = SortingMergePolicy(mergePolicy, Sort(SortField(_NUMERIC_KEY_FIELD, SortField.Type.LONG)))
-        config.setMergePolicy(sortingMergePolicy)
+        config.setIndexSort(Sort(SortField(_NUMERIC_KEY_FIELD, SortField.Type.LONG)));
         writer = IndexWriter(directory, config)
         reader = writer.getReader()
         searcher = IndexSearcher(reader)
