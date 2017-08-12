@@ -25,7 +25,6 @@
 #
 ## end license ##
 
-import sys
 from os import getenv, makedirs, listdir, rename, remove
 from os.path import join, isdir, isfile
 from shutil import rmtree
@@ -41,7 +40,7 @@ def importVM():
         warn("Using '4g' as maxheap for lucene.initVM(). To override use PYLUCENE_MAXHEAP environment variable.")
     from lucene import initVM, getVMEnv
     try:
-        VM = initVM(maxheap=maxheap)#, vmargs='-agentlib:hprof=heap=sites')
+        VM = initVM(maxheap=maxheap, vmargs='-agentlib:hprof=heap=sites')
     except ValueError:
         VM = getVMEnv()
     return VM
@@ -103,7 +102,7 @@ class SequentialStorage(object):
         self._identifierField.setStringValue(identifier)
         self._keyField.setLongValue(newKey)
         self._numericKeyField.setLongValue(newKey)
-        self._dataField.setBytesValue(BytesRef(JArray('byte')(data)))
+        self._dataField.setBytesValue(pyStrToBytesRef(data))
         self._writer.updateDocument(Term(_IDENTIFIER_FIELD, identifier), self._doc)
         self._latestModifications[identifier] = data
         if len(self._latestModifications) > self._maxModifications:
@@ -182,9 +181,8 @@ class SequentialStorage(object):
         dataBinaryDocValues = readerContext.reader().getBinaryDocValues(_DATA_FIELD);
         if dataBinaryDocValues is None:
             raise KeyError(identifier);
-        dataByteRef = dataBinaryDocValues.get(docId - readerContext.docBase)
-        bytes = dataByteRef.bytes
-        return ''.join(chr(o & 0xFF) for o in islice(bytes, dataByteRef.offset, dataByteRef.length))  # FIXME: how to make this more efficient? Even delegating to Java doesn't seem to provide a solution to safely communicate byte arrays.
+        dataBytesRef = dataBinaryDocValues.get(docId - readerContext.docBase)
+        return bytesRefToPyStr(dataBytesRef)
 
     def _getDocId(self, identifier):
         searcher = self._getSearcher(identifier)
@@ -236,6 +234,13 @@ class SequentialStorage(object):
         reader = writer.getReader()
         searcher = IndexSearcher(reader)
         return writer, reader, searcher
+
+
+def pyStrToBytesRef(s):
+    return BytesRef(JArray('byte')(s))
+
+def bytesRefToPyStr(bytesRef):
+    return ''.join(chr(b & 0xFF) for b in islice(bytesRef.bytes, bytesRef.offset, bytesRef.length))
 
 
 DEFAULT_MAX_MODIFICATIONS = 10000
