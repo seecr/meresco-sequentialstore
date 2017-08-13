@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014, 2017 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -35,7 +35,7 @@ from meresco.sequentialstore import SequentialStorage
 
 class PerformanceSequentialStorageTest(SeecrTestCase):
     def testGetitem(self):
-        N = 50000
+        N = 500000
         c = SequentialStorage(self.tempdir)
         H = "This is a holding-like record, at least, it tries to look like it, but I am not sure if it is really something that comes close enough. Anyway, here you go: Holding: %s"
         self.assertEquals(168, len(H))
@@ -58,7 +58,7 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
         f()
 
     def testSpeedAddsAndGetitems(self):
-        N = 50000
+        N = 500000
         c = SequentialStorage(self.tempdir)
         H = "This is a holding-like record, at least, it tries to look like it, but I am not sure if it is really something that comes close enough. Anyway, here you go: Holding: %s"
         self.assertEquals(168, len(H))
@@ -75,6 +75,18 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
         #from seecr.utils.profileit import profile
         #profile(f)
         f()
+
+        def sequentialRead():
+            t0 = time()
+            for i in xrange(N):
+                _ = c["http://nederland.nl/%s" % i]
+                if i % 1000 == 0:
+                    t1 = time()
+                    print i, i/(t1-t0)
+            print (time() - t0) / N
+        sequentialRead()
+
+        raw_input('ready... ' + self.tempdir)
 
     def testIterValues(self):
         N = 50000
