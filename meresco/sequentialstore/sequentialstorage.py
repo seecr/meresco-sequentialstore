@@ -31,50 +31,16 @@ from warnings import warn
 from itertools import islice
 
 
-def importVM():
-    maxheap = getenv('PYLUCENE_MAXHEAP')
-    if not maxheap:
-        maxheap = '4g'
-        warn("Using '4g' as maxheap for lucene.initVM(). To override use PYLUCENE_MAXHEAP environment variable.")
-    from lucene import initVM, getVMEnv
-    try:
-        VM = initVM(maxheap=maxheap)
-        # VM = initVM(maxheap=maxheap, vmargs='-agentlib:hprof=heap=sites')
-    except ValueError:
-        VM = getVMEnv()
-    return VM
-
-
-imported = False
-JArray = None
-BytesRef = None
-StoreLucene = None
-
-def lazyImport():
-    global imported
-    if imported:
-        return
-    importVM()
-
-    from meresco_sequentialstore import initVM as initMerescoSequentialStore
-    initMerescoSequentialStore()
-    from org.meresco.sequentialstore import StoreLucene
-    from lucene import JArray
-    from org.apache.lucene.util import BytesRef
-    imported = True
-    globals().update(locals())
-
-
 class SequentialStorage(object):
     version = '3'
 
     def __init__(self, directory, maxModifications=None):
-        lazyImport()
+        _importFromJava()
         self._directory = directory
         if not isdir(directory):
             makedirs(directory)
         self._versionFormatCheck()
-        self._maxModifications = DEFAULT_MAX_MODIFICATIONS if maxModifications is None else maxModifications
+        self._maxModifications = _DEFAULT_MAX_MODIFICATIONS if maxModifications is None else maxModifications
         self._luceneStore = StoreLucene(directory)
         self._latestModifications = {}
         self.gets = 0
@@ -89,15 +55,15 @@ class SequentialStorage(object):
         data = str(data)
         self._luceneStore.add(identifier, pyStrToBytesRef(data))
         self._latestModifications[identifier] = data
-        if len(self._latestModifications) > self._maxModifications:
-            self.commit()
+        self._maybeCommit()
 
     __setitem__ = add
 
     def delete(self, identifier):
         identifier = str(identifier)
         self._luceneStore.delete(identifier)
-        self._latestModifications[identifier] = DELETED_RECORD
+        self._latestModifications[identifier] = _DELETED_RECORD
+        self._maybeCommit()
 
     __delitem__ = delete
 
@@ -107,7 +73,7 @@ class SequentialStorage(object):
         value = self._latestModifications.get(identifier)
         if not value is None:
             self.cacheHits += 1
-            if value is DELETED_RECORD:
+            if value is _DELETED_RECORD:
                 raise KeyError(identifier)
             return value
         data = self._getData(identifier)
@@ -149,6 +115,10 @@ class SequentialStorage(object):
         self.commit()
         return (self._getData(key) for key in self._luceneStore.iterkeys())
 
+    def commit(self):
+        self._luceneStore.commit()
+        self._reopen()
+
     def close(self):
         if self._luceneStore is None:
             return
@@ -156,9 +126,6 @@ class SequentialStorage(object):
         self._luceneStore.close()
         self._luceneStore = None
 
-    def commit(self):
-        self._luceneStore.commit()
-        self._reopen()
 
     def _getData(self, identifier):
         if str(identifier) not in self._latestModifications and len(self._latestModifications) > self._maxModifications:
@@ -169,6 +136,10 @@ class SequentialStorage(object):
         dataBytesRef = self._luceneStore.getData(identifier)
         return bytesRefToPyStr(dataBytesRef) if not dataBytesRef is None else None
 
+    def _maybeCommit(self):
+        if len(self._latestModifications) > self._maxModifications:
+            self.commit()
+
     def _reopen(self):
         self._luceneStore.reopen()
         self._latestModifications.clear()
@@ -176,12 +147,19 @@ class SequentialStorage(object):
     def _versionFormatCheck(self):
         versionFile = join(self._directory, "sequentialstorage.version")
         if isdir(self._directory):
-            assert (listdir(self._directory) == []) or (isfile(versionFile) and open(versionFile).read() == self.version), "The SequentialStorage at %s needs to be converted to the current version." % self._directory
+            if isfile(versionFile):
+                assert open(versionFile).read() == self.version, "The SequentialStorage at %s needs to be converted to the current version (with sequentialstore_convert_v2_to_v3)." % self._directory
+            else:
+                assert (listdir(self._directory) == []), "The %s directory is already in use for something other than a SequentialStorage." % self._directory
         else:
             assert not isfile(self._directory), 'Given directory name %s exists as file.' % self._directory
             makedirs(self._directory)
         with open(versionFile, 'w') as f:
             f.write(self.version)
+
+
+_DEFAULT_MAX_MODIFICATIONS = 10000
+_DELETED_RECORD = object()
 
 
 def pyStrToBytesRef(s):
@@ -191,5 +169,33 @@ def bytesRefToPyStr(bytesRef):
     return ''.join(chr(b & 0xFF) for b in islice(bytesRef.bytes, bytesRef.offset, bytesRef.length))
 
 
-DEFAULT_MAX_MODIFICATIONS = 10000
-DELETED_RECORD = object()
+imported = False
+JArray = None
+BytesRef = None
+StoreLucene = None
+
+def _importFromJava():
+    global imported
+    if imported:
+        return
+    _importVM()
+    from meresco_sequentialstore import initVM as initMerescoSequentialStore
+    initMerescoSequentialStore()
+    from org.meresco.sequentialstore import StoreLucene
+    from lucene import JArray
+    from org.apache.lucene.util import BytesRef
+    globals().update(locals())
+    imported = True
+
+def _importVM():
+    maxheap = getenv('PYLUCENE_MAXHEAP')
+    if not maxheap:
+        maxheap = '4g'
+        warn("Using '4g' as maxheap for lucene.initVM(). To override use PYLUCENE_MAXHEAP environment variable.")
+    from lucene import initVM, getVMEnv
+    try:
+        VM = initVM(maxheap=maxheap)
+        # VM = initVM(maxheap=maxheap, vmargs='-agentlib:hprof=heap=sites')
+    except ValueError:
+        VM = getVMEnv()
+    return VM

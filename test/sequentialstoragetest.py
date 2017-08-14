@@ -159,13 +159,13 @@ class SequentialStorageTest(SeecrTestCase):
         version = open(join(self.tempdir, "sequentialstorage.version")).read()
         self.assertEquals('3', version)
 
-    def testRefuseInitWithNoVersionFile(self):
+    def testRefuseInitInNonEmptyDirWithNoVersionFile(self):
         open(join(self.tempdir, 'x'), 'w').close()
         try:
             SequentialStorage(self.tempdir)
             self.fail()
         except AssertionError, e:
-            self.assertEquals('The SequentialStorage at %s needs to be converted to the current version.' % self.tempdir, str(e))
+            self.assertEquals("The %s directory is already in use for something other than a SequentialStorage." % self.tempdir, str(e))
 
     def testRefuseInitWithDifferentVersionFile(self):
         open(join(self.tempdir, 'sequentialstorage.version'), 'w').write('different version')
@@ -173,7 +173,7 @@ class SequentialStorageTest(SeecrTestCase):
             SequentialStorage(self.tempdir)
             self.fail()
         except AssertionError, e:
-            self.assertEquals('The SequentialStorage at %s needs to be converted to the current version.' % self.tempdir, str(e))
+            self.assertEquals('The SequentialStorage at %s needs to be converted to the current version (with sequentialstore_convert_v2_to_v3).' % self.tempdir, str(e))
 
     def testRefuseInitWithDirectoryPathThatExistsAsFile(self):
         filePath = join(self.tempdir, 'x')
