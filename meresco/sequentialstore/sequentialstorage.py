@@ -160,7 +160,6 @@ class SequentialStorage(object):
         self._luceneStore.commit()
         self._reopen()
 
-
     def _getData(self, identifier):
         if str(identifier) not in self._latestModifications and len(self._latestModifications) > self._maxModifications:
             self._reopen()
@@ -169,7 +168,6 @@ class SequentialStorage(object):
             return None
         dataBytesRef = self._luceneStore.getData(identifier)
         return bytesRefToPyStr(dataBytesRef) if not dataBytesRef is None else None
-
 
     def _reopen(self):
         self._luceneStore.reopen()
@@ -194,10 +192,4 @@ def bytesRefToPyStr(bytesRef):
 
 
 DEFAULT_MAX_MODIFICATIONS = 10000
-
-_IDENTIFIER_FIELD = "identifier"
-_KEY_FIELD = "key"
-_NUMERIC_KEY_FIELD = "key"
-_DATA_FIELD = "data"
-
 DELETED_RECORD = object()
