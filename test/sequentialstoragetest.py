@@ -32,7 +32,6 @@ from shutil import rmtree
 from seecr.test import SeecrTestCase, CallTrace
 
 from meresco.sequentialstore import SequentialStorage
-from unittest import skip
 
 
 class SequentialStorageTest(SeecrTestCase):
@@ -121,6 +120,12 @@ class SequentialStorageTest(SeecrTestCase):
         sequentialStorage.delete(identifier='abc')
         self.assertRaises(KeyError, lambda: sequentialStorage['abc'])
         self.assertEquals('2', sequentialStorage['def'])
+
+    def testDeleteAllowedForUnknownIdentifier(self):
+        sequentialStorage = SequentialStorage(self.tempdir)
+        sequentialStorage.add(identifier='def', data="2")
+        sequentialStorage.delete(identifier='abc')
+        self.assertRaises(KeyError, lambda: sequentialStorage['abc'])
 
     def testDeletePersisted(self):
         sequentialStorage = SequentialStorage(self.tempdir)

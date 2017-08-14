@@ -44,6 +44,8 @@ from adddeletetomultisequentialtest import AddDeleteToMultiSequentialTest
 from sequentialstoragetest import SequentialStorageTest
 from multisequentialstoragetest import MultiSequentialStorageTest
 from storagecomponentadaptertest import StorageComponentAdapterTest
+from convertv2tov3test import ConvertV2ToV3Test
+
 
 if __name__ == '__main__':
     unittest.main()
