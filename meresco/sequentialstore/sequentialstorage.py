@@ -25,14 +25,12 @@
 #
 ## end license ##
 
-from os import getenv, makedirs, listdir, rename, remove
+from os import getenv, makedirs, listdir
 from os.path import join, isdir, isfile
-from shutil import rmtree
 from warnings import warn
 from itertools import islice
 
 
-imported = False
 def importVM():
     maxheap = getenv('PYLUCENE_MAXHEAP')
     if not maxheap:
@@ -47,21 +45,22 @@ def importVM():
     return VM
 
 
+imported = False
+JArray = None
+BytesRef = None
+StoreLucene = None
+
 def lazyImport():
     global imported
     if imported:
         return
     importVM()
 
+    from meresco_sequentialstore import initVM as initMerescoSequentialStore
+    initMerescoSequentialStore()
+    from org.meresco.sequentialstore import StoreLucene
     from lucene import JArray
-    from java.io import File
-    from java.nio.file import Paths
-    from org.apache.lucene.document import Document, StringField, Field, LongPoint, StoredField, NumericDocValuesField, BinaryDocValuesField
-    from org.apache.lucene.search import IndexSearcher, TermQuery, Sort, SortField
-    from org.apache.lucene.index import DirectoryReader, Term, IndexWriter, IndexWriterConfig, ReaderUtil
-    from org.apache.lucene.store import FSDirectory
-    from org.apache.lucene.util import Version, BytesRef
-
+    from org.apache.lucene.util import BytesRef
     imported = True
     globals().update(locals())
 
@@ -76,21 +75,10 @@ class SequentialStorage(object):
             makedirs(directory)
         self._versionFormatCheck()
         self._maxModifications = DEFAULT_MAX_MODIFICATIONS if maxModifications is None else maxModifications
-        self._writer, self._reader, self._searcher = self._getLucene()
+        self._luceneStore = StoreLucene(directory)
         self._latestModifications = {}
         self.gets = 0
         self.cacheHits = 0
-        self._newestKey = self._newestKeyFromIndex()
-
-        self._identifierField = StringField(_IDENTIFIER_FIELD, "", Field.Store.NO)
-        self._storedKeyField = StoredField(_KEY_FIELD, 0L)
-        self._numericKeyField = NumericDocValuesField(_NUMERIC_KEY_FIELD, 0L)
-        self._dataField = BinaryDocValuesField(_DATA_FIELD, BytesRef())
-        self._doc = Document()
-        self._doc.add(self._identifierField)
-        self._doc.add(self._storedKeyField)
-        self._doc.add(self._numericKeyField)
-        self._doc.add(self._dataField)
 
     def add(self, identifier, data):
         if identifier is None:
@@ -99,12 +87,7 @@ class SequentialStorage(object):
             raise ValueError('data should not be None')
         identifier = str(identifier)
         data = str(data)
-        newKey = self._newKey()
-        self._identifierField.setStringValue(identifier)
-        self._storedKeyField.setLongValue(newKey)
-        self._numericKeyField.setLongValue(newKey)
-        self._dataField.setBytesValue(pyStrToBytesRef(data))
-        self._writer.updateDocument(Term(_IDENTIFIER_FIELD, identifier), self._doc)
+        self._luceneStore.add(identifier, pyStrToBytesRef(data))
         self._latestModifications[identifier] = data
         if len(self._latestModifications) > self._maxModifications:
             self.commit()
@@ -113,7 +96,7 @@ class SequentialStorage(object):
 
     def delete(self, identifier):
         identifier = str(identifier)
-        self._writer.deleteDocuments(Term(_IDENTIFIER_FIELD, identifier))
+        self._luceneStore.delete(identifier)
         self._latestModifications[identifier] = DELETED_RECORD
 
     __delitem__ = delete
@@ -150,75 +133,32 @@ class SequentialStorage(object):
             yield identifier, data
 
     def __len__(self):
-        return self._writer.numDocs()
+        return self._luceneStore.numDocs()
 
     # desirable: iteritems, iterkeys, itervalues
 
     def close(self):
-        if self._writer is None:
+        if self._luceneStore is None:
             return
         self.commit()
-        self._writer.close()
-        self._writer = None
-        self._reader.close()
-        self._searcher = None
-        self._reader = None
+        self._luceneStore.close()
+        self._luceneStore = None
 
     def commit(self):
-        self._writer.commit()
+        self._luceneStore.commit()
         self._reopen()
 
-
-    def _newKey(self):
-        self._newestKey += 1L
-        return self._newestKey
-
-    def _newestKeyFromIndex(self):
-        searcher = self._getSearcher()
-        maxDoc = searcher.getIndexReader().maxDoc()
-        if maxDoc < 1:
-            return 0L
-        doc = searcher.doc(maxDoc - 1)
-        if doc is None:
-            return 0L
-        newestKey = doc.getField(_KEY_FIELD).numericValue().longValue()
-        return newestKey
 
     def _getData(self, identifier):
-        docId = self._getDocId(identifier)
-        leaves = self._reader.leaves()
-        readerContext = leaves.get(ReaderUtil.subIndex(docId, leaves))
-        dataBinaryDocValues = readerContext.reader().getBinaryDocValues(_DATA_FIELD);
-        if dataBinaryDocValues is None:
-            raise KeyError(identifier);
-        dataBytesRef = dataBinaryDocValues.get(docId - readerContext.docBase)
-        return bytesRefToPyStr(dataBytesRef)
+        if str(identifier) not in self._latestModifications and len(self._latestModifications) > self._maxModifications:
+            self._reopen()
+        dataBytesRef = self._luceneStore.getData(identifier)
+        return bytesRefToPyStr(dataBytesRef) if not dataBytesRef is None else None
 
-    def _getDocId(self, identifier):
-        searcher = self._getSearcher(identifier)
-        results = searcher.search(TermQuery(Term(_IDENTIFIER_FIELD, identifier)), 1)
-        if results.totalHits == 0:
-            raise KeyError(identifier)
-        return results.scoreDocs[0].doc
-
-    def _getSearcher(self, identifier=None):
-        modifications = len(self._latestModifications)
-        if modifications == 0:
-            return self._searcher
-        if identifier and str(identifier) not in self._latestModifications and modifications < self._maxModifications:
-            return self._searcher
-        self._reopen()
-        return self._searcher
 
     def _reopen(self):
-        newreader = DirectoryReader.openIfChanged(self._reader, self._writer, True)
-        if newreader:
-            self._reader.close()
-            self._reader = newreader
-            self._searcher = IndexSearcher(newreader)
-            # print 'clear latest modifications'
-            # import sys; sys.stdout.flush()
-            self._latestModifications.clear()
+        self._luceneStore.reopen()
+        self._latestModifications.clear()
 
     def _versionFormatCheck(self):
         versionFile = join(self._directory, "sequentialstorage.version")
@@ -230,22 +170,9 @@ class SequentialStorage(object):
         with open(versionFile, 'w') as f:
             f.write(self.version)
 
-    def _getLucene(self):
-        directory = FSDirectory.open(Paths.get(self._directory))
-        config = IndexWriterConfig()
-        config.setRAMBufferSizeMB(256.0) # faster
-        config.setUseCompoundFile(False) # faster, for Lucene 4.4 and later
-        # TODO: set max segment size?
-
-        config.setIndexSort(Sort(SortField(_NUMERIC_KEY_FIELD, SortField.Type.LONG)));
-        writer = IndexWriter(directory, config)
-        reader = writer.getReader()
-        searcher = IndexSearcher(reader)
-        return writer, reader, searcher
-
 
 def pyStrToBytesRef(s):
-    return BytesRef(JArray('byte')(s))
+     return BytesRef(JArray('byte')(s))
 
 def bytesRefToPyStr(bytesRef):
     return ''.join(chr(b & 0xFF) for b in islice(bytesRef.bytes, bytesRef.offset, bytesRef.length))

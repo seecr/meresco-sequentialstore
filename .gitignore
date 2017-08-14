@@ -2,3 +2,4 @@ deps.d
 lib
 *.pyc
 *.swp
+/eclipse_build/
