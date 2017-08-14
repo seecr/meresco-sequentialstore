@@ -135,7 +135,19 @@ class SequentialStorage(object):
     def __len__(self):
         return self._luceneStore.numDocs()
 
-    # desirable: iteritems, iterkeys, itervalues
+    def iterkeys(self):
+        self.commit()
+        return self._luceneStore.iterkeys()
+
+    __iter__ = iterkeys
+
+    def iteritems(self):
+        self.commit()
+        return ((key, self._getData(key)) for key in self._luceneStore.iterkeys())
+
+    def itervalues(self):
+        self.commit()
+        return (self._getData(key) for key in self._luceneStore.iterkeys())
 
     def close(self):
         if self._luceneStore is None:
@@ -152,6 +164,9 @@ class SequentialStorage(object):
     def _getData(self, identifier):
         if str(identifier) not in self._latestModifications and len(self._latestModifications) > self._maxModifications:
             self._reopen()
+        data = self._luceneStore.getData(identifier)
+        if data is None:
+            return None
         dataBytesRef = self._luceneStore.getData(identifier)
         return bytesRefToPyStr(dataBytesRef) if not dataBytesRef is None else None
 

@@ -32,6 +32,7 @@ from shutil import rmtree
 from seecr.test import SeecrTestCase, CallTrace
 
 from meresco.sequentialstore import SequentialStorage
+from unittest import skip
 
 
 class SequentialStorageTest(SeecrTestCase):
@@ -58,6 +59,7 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEquals("1", sequentialStorageReloaded['abc'])
         self.assertEquals("2", sequentialStorageReloaded['def'])
         self.assertEquals(2, len(sequentialStorageReloaded))
+        self.assertEquals(["abc", "def"], list(sequentialStorageReloaded.iterkeys()))
 
     def testGetMultiple(self):
         sequentialStorage = SequentialStorage(self.tempdir)
@@ -184,3 +186,20 @@ class SequentialStorageTest(SeecrTestCase):
             self.fail()
         except Exception, e:
             self.assertTrue(repr(e).startswith('JavaError(<Throwable: org.apache.lucene.store.LockObtainFailedException: Lock held by this virtual machine: %s' % self.tempdir), e)
+
+    def testIter(self):
+        s = SequentialStorage(self.tempdir)
+        for i in xrange(1000, 0, -1):
+            s.add('identifier%s' % i, 'data%s' % i)
+        for i in xrange(0, 1001, 2):
+            s.delete('identifier%s' % i)
+        expected = ['identifier%s' % i for i in xrange(999, 0, -2)]
+        self.assertEquals(expected, list(iter(s)))
+        self.assertEquals(expected, list(s.iterkeys()))
+        expected = ['data%s' % i for i in xrange(999, 0, -2)]
+        self.assertEquals(expected, list(s.itervalues()))
+        expected = [('identifier%s' % i, 'data%s' % i) for i in xrange(999, 0, -2)]
+        self.assertEquals(expected, list(s.iteritems()))
+
+
+

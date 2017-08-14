@@ -39,6 +39,7 @@ import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.MultiFields;
 import org.apache.lucene.index.ReaderUtil;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.IndexSearcher;
@@ -48,6 +49,7 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 
 
@@ -58,12 +60,14 @@ public class StoreLucene {
     private long newestKey = 0;
 
     private StringField _identifierField;
+    private BinaryDocValuesField _identifierDocValueField;
     private StoredField _storedKeyField;
     private NumericDocValuesField _numericKeyField;
     private BinaryDocValuesField _dataField;
     private Document _doc;
 
     private static String _IDENTIFIER_FIELD = "identifier";
+    private static String _IDENTIFIER_DOC_VALUE_FIELD = "identifier";
     private static String _KEY_FIELD = "key";
     private static String _NUMERIC_KEY_FIELD = "key";
     private static String _DATA_FIELD = "data";
@@ -83,11 +87,13 @@ public class StoreLucene {
         this.newestKey = newestKeyFromIndex();
 
         this._identifierField = new StringField(_IDENTIFIER_FIELD, "", Field.Store.NO);
+        this._identifierDocValueField = new BinaryDocValuesField(_IDENTIFIER_DOC_VALUE_FIELD, new BytesRef());
         this._storedKeyField = new StoredField(_KEY_FIELD, 0L);
         this._numericKeyField = new NumericDocValuesField(_NUMERIC_KEY_FIELD, 0L);
         this._dataField = new BinaryDocValuesField(_DATA_FIELD, new BytesRef());
         this._doc = new Document();
         this._doc.add(this._identifierField);
+        this._doc.add(this._identifierDocValueField);
         this._doc.add(this._storedKeyField);
         this._doc.add(this._numericKeyField);
         this._doc.add(this._dataField);
@@ -133,6 +139,7 @@ public class StoreLucene {
     public void add(String identifier, BytesRef data) throws IOException {
         long newKey = newKey();
         this._identifierField.setStringValue(identifier);
+        this._identifierDocValueField.setBytesValue(new BytesRef(identifier));
         this._storedKeyField.setLongValue(newKey);
         this._numericKeyField.setLongValue(newKey);
         this._dataField.setBytesValue(data);
@@ -177,64 +184,38 @@ public class StoreLucene {
     }
 
 
-    //    public PyIterator<String> iterkeys() throws IOException {
-    //        // Needs this.reopen()
-    //        List<AtomicReaderContext> leaves = this.reader.leaves();
-    //        ReaderSlice[] readerSlices = new ReaderSlice[leaves.size()];
-    //        Terms[] terms = new Terms[leaves.size()];
-    //        for (int i=0; i<leaves.size(); i++) {
-    //            AtomicReader reader = leaves.get(i).reader();
-    //            readerSlices[i] = new ReaderSlice(0, reader.maxDoc(), i);
-    //            terms[i] = new TermsFilteredByLiveDocs(reader.terms("key"), reader.getLiveDocs());
-    //        }
-    //        MultiTerms multiTerms = new MultiTerms(terms, readerSlices);
-    //        final TermsEnum termsEnum = multiTerms.iterator(null);
-    //
-    //        return new PyIterator<String>() {
-    //            @Override
-    //            public String next() {
-    //                try {
-    //                    BytesRef term = null;
-    //                    term = termsEnum.next();
-    //                    if (term == null) {
-    //                        return null;
-    //                    }
-    //                    return term.utf8ToString();
-    //                } catch (IOException e) {
-    //                    throw new RuntimeException(e);
-    //                }
-    //            }
-    //        };
-    //    }
-    //
-    //    public interface PyIterator<T> {
-    //        public T next();
-    //    }
-    //
-    //
-    //    class TermsFilteredByLiveDocs extends FilterTerms {
-    //        Bits liveDocs;
-    //
-    //        public TermsFilteredByLiveDocs(Terms terms, Bits liveDocs) {
-    //            super(terms);
-    //            this.liveDocs = liveDocs;
-    //        }
-    //
-    //        @Override
-    //        public TermsEnum iterator(TermsEnum original) throws IOException {
-    //            final TermsEnum termsEnum = this.in.iterator(null);
-    //
-    //            return new FilteredTermsEnum(termsEnum, false) {
-    //                @Override
-    //                public AcceptStatus accept(BytesRef term) throws IOException {
-    //                    DocsEnum docsEnum = termsEnum.docs(TermsFilteredByLiveDocs.this.liveDocs, null, DocsEnum.FLAG_NONE);
-    //                    int docId = docsEnum.nextDoc();
-    //                    if (docId == DocsEnum.NO_MORE_DOCS) {
-    //                        return AcceptStatus.NO;
-    //                    }
-    //                    return AcceptStatus.YES;
-    //                }
-    //            };
-    //        }
-    //    }
+    public PyIterator<String> iterkeys() throws IOException {
+        // Requires reopen to be called first.
+        return new PyIterator<String>() {
+            private List<LeafReaderContext> leaves = StoreLucene.this.reader.leaves();
+            Bits liveDocs = MultiFields.getLiveDocs(StoreLucene.this.reader);
+            int maxDoc = StoreLucene.this.reader.maxDoc();
+            int docId = 0;
+
+            @Override
+            public String next() {
+                String result = null;
+                while (result == null) {
+                    if (docId >= maxDoc) {
+                        return null;
+                    }
+                    if (liveDocs == null || liveDocs.get(docId)) {
+                        LeafReaderContext readerContext = leaves.get(ReaderUtil.subIndex(this.docId, leaves));
+                        try {
+                            BinaryDocValues dataBinaryDocValues = readerContext.reader().getBinaryDocValues(_IDENTIFIER_DOC_VALUE_FIELD);
+                            result = dataBinaryDocValues.get(docId - readerContext.docBase).utf8ToString();
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                    docId++;
+                }
+                return result;
+            }
+        };
+    }
+
+    public interface PyIterator<T> {
+        public T next();
+    }
 }
