@@ -23,7 +23,10 @@
 #
 ## end license ##
 
+import os
+from os import makedirs
 from os.path import join
+from shutil import rmtree
 from time import time
 from random import randint
 
@@ -58,8 +61,13 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
         f()
 
     def testSpeedAddsAndGetitems(self):
+        directory = self.tempdir
+        directory = "/data/try_seqstore"
+        rmtree(directory)
+        makedirs(directory)
         N = 500000
-        c = SequentialStorage(self.tempdir)
+
+        c = SequentialStorage(directory)
         H = "This is a holding-like record, at least, it tries to look like it, but I am not sure if it is really something that comes close enough. Anyway, here you go: Holding: %s"
         self.assertEquals(168, len(H))
         def f():
@@ -77,14 +85,30 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
         f()
 
         def sequentialRead():
+            clearCaches()
+            c = SequentialStorage(directory)
             t0 = time()
             for i in xrange(N):
                 _ = c["http://nederland.nl/%s" % i]
                 if i % 1000 == 0:
                     t1 = time()
                     print i, i/(t1-t0)
-            print (time() - t0) / N
+            print "sequential read", (time() - t0) / N
         sequentialRead()
+
+        def randomRead():
+            clearCaches()
+            c = SequentialStorage(directory)
+            t0 = time()
+            for i in xrange(N):
+                j = randint(0, N)
+                _ = c["http://nederland.nl/%s" % j]
+                if i % 1000 == 0:
+                    t1 = time()
+                    print i, i/(t1-t0)
+            print "random read", (time() - t0) / N
+        randomRead()
+
 
         raw_input('ready... ' + self.tempdir)
 
@@ -150,4 +174,7 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
         s.close()
         s2.close()
         s3.close()
+
+def clearCaches():
+    os.system("sudo sync; echo 3 > /proc/sys/vm/drop_caches")
 
