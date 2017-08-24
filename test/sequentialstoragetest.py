@@ -39,6 +39,7 @@ class SequentialStorageTest(SeecrTestCase):
         sequentialStorage = SequentialStorage(self.tempdir)
         sequentialStorage.add(identifier='abc', data="1")
         self.assertEquals("1", sequentialStorage['abc'])
+        self.assertEquals(1, len(sequentialStorage))
 
     def testKeyErrorForUnknownKey(self):
         sequentialStorage = SequentialStorage(self.tempdir)
@@ -48,6 +49,7 @@ class SequentialStorageTest(SeecrTestCase):
         sequentialStorage = SequentialStorage(self.tempdir)
         sequentialStorage.add(identifier='abc', data="1")
         sequentialStorage.add(identifier='def', data="2")
+        self.assertEquals(2, len(sequentialStorage))
         sequentialStorage.commit()
         self.assertEquals("1", sequentialStorage['abc'])
 
@@ -55,6 +57,7 @@ class SequentialStorageTest(SeecrTestCase):
         sequentialStorageReloaded = SequentialStorage(self.tempdir)
         self.assertEquals("1", sequentialStorageReloaded['abc'])
         self.assertEquals("2", sequentialStorageReloaded['def'])
+        self.assertEquals(2, len(sequentialStorageReloaded))
 
     def testGetMultiple(self):
         sequentialStorage = SequentialStorage(self.tempdir)

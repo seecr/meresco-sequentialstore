@@ -66,6 +66,7 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
             rmtree(directory)
         makedirs(directory)
 
+
         def f():
             c = SequentialStorage(directory)
             H = "This is a holding-like record, at least, it tries to look like it, but I am not sure if it is really something that comes close enough. Anyway, here you go: Holding: %s"
@@ -86,7 +87,7 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
             c.close()
         #from seecr.utils.profileit import profile
         #profile(f)
-        f()
+        # f()
 
         def sequentialRead():
             clearCaches()
@@ -107,6 +108,7 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
             print "sequential read", T / N, T / bytes
             c.close()
         sequentialRead()
+
 
         def randomRead():
             clearCaches()

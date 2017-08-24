@@ -40,7 +40,8 @@ def importVM():
         warn("Using '4g' as maxheap for lucene.initVM(). To override use PYLUCENE_MAXHEAP environment variable.")
     from lucene import initVM, getVMEnv
     try:
-        VM = initVM(maxheap=maxheap) #, vmargs='-agentlib:hprof=heap=sites')
+        VM = initVM(maxheap=maxheap)
+        # VM = initVM(maxheap=maxheap, vmargs='-agentlib:hprof=heap=sites')
     except ValueError:
         VM = getVMEnv()
     return VM
@@ -147,6 +148,9 @@ class SequentialStorage(object):
                     continue
                 raise
             yield identifier, data
+
+    def __len__(self):
+        return self._writer.numDocs()
 
     # desirable: iteritems, iterkeys, itervalues
 
