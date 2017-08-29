@@ -25,7 +25,7 @@
 
 import os
 from os import makedirs
-from os.path import join
+from os.path import join, isdir
 from shutil import rmtree
 from time import time
 from random import randint
@@ -61,56 +61,85 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
         f()
 
     def testSpeedAddsAndGetitems(self):
+        N = 5000000
         directory = self.tempdir
         directory = "/data/try_seqstore"
-        rmtree(directory)
-        makedirs(directory)
-        N = 500000
 
-        c = SequentialStorage(directory)
-        H = "This is a holding-like record, at least, it tries to look like it, but I am not sure if it is really something that comes close enough. Anyway, here you go: Holding: %s"
-        self.assertEquals(168, len(H))
+        if isdir(directory):
+            rmtree(directory)
+        makedirs(directory)
+
         def f():
-            t0 = time()
+            c = SequentialStorage(directory)
+            H = "This is a holding-like record, at least, it tries to look like it, but I am not sure if it is really something that comes close enough. Anyway, here you go: Holding: %s"
+            self.assertEquals(168, len(H))
+            T = 0
             for i in xrange(N):
-                c.add(identifier="http://nederland.nl/%s" % i, data=H % i)
-                j = randint(0, i)
-                data = c["http://nederland.nl/%s" % j]
-                #self.assertEquals(H % j, data)
+                identifier="http://nederland.nl/%s" % i
+                data=H % i
+                t0 = time()
+                c.add(identifier=identifier, data=data)
+                T += (time() - t0)
                 if i % 1000 == 0:
-                    t1 = time()
-                    print i, i/(t1-t0)
+                    print i, i / T
+            print "write", T / N
+            c.close()
         #from seecr.utils.profileit import profile
         #profile(f)
         f()
 
-        def sequentialRead():
+        def events():
             clearCaches()
             c = SequentialStorage(directory)
             t0 = time()
-            for i in xrange(N):
-                _ = c["http://nederland.nl/%s" % i]
+            for i, identifier in enumerate(c.events()):
                 if i % 1000 == 0:
-                    t1 = time()
-                    print i, i/(t1-t0)
-            print "sequential read", (time() - t0) / N
+                    print i, i/(time() - t0)
+            print "events", (time() - t0) / i
+            c.close()
+        events()
+
+        def sequentialRead():
+            clearCaches()
+            t0 = time()
+            c = SequentialStorage(directory)
+            print 'opening for sequentialRead', (time() - t0)
+            bytes = 0
+            T = 0
+            for i in xrange(N):
+                identifier = "http://nederland.nl/%s" % i
+                t0 = time()
+                data = c[identifier]
+                T += (time() - t0)
+                bytes += len(data)
+                if i % 1000 == 0:
+                    print i, i/T, bytes/T
+                    # print 'GC objects', gc.get_count()
+            print "sequential read", T / N, T / bytes
+            c.close()
         sequentialRead()
 
         def randomRead():
             clearCaches()
             c = SequentialStorage(directory)
-            t0 = time()
+            bytes = 0
+            T = 0
             for i in xrange(N):
-                j = randint(0, N)
-                _ = c["http://nederland.nl/%s" % j]
+                j = randint(0, N-1)
+                identifier = "http://nederland.nl/%s" % j
+                t0 = time()
+                data = c[identifier]
+                T += (time() - t0)
+                bytes += len(data)
                 if i % 1000 == 0:
-                    t1 = time()
-                    print i, i/(t1-t0)
-            print "random read", (time() - t0) / N
+                    print i, i/T, bytes/T
+                    # print 'GC objects', gc.get_count()
+            print "random read", T / N, T / bytes
+            c.close()
         randomRead()
 
-
         raw_input('ready... ' + self.tempdir)
+
 
     def testIterValues(self):
         N = 50000
@@ -175,6 +204,7 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
         s2.close()
         s3.close()
 
+
 def clearCaches():
-    os.system("sudo sync; echo 3 > /proc/sys/vm/drop_caches")
+    raw_input('''as root do:\n# sync; echo 3 > /proc/sys/vm/drop_caches\n''')
 
