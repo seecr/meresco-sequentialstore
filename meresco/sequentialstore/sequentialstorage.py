@@ -43,8 +43,6 @@ class SequentialStorage(object):
         self._maxModifications = _DEFAULT_MAX_MODIFICATIONS if maxModifications is None else maxModifications
         self._luceneStore = StoreLucene(directory)
         self._latestModifications = {}
-        self.gets = 0
-        self.cacheHits = 0
 
     def add(self, identifier, data):
         if identifier is None:
@@ -68,18 +66,16 @@ class SequentialStorage(object):
     __delitem__ = delete
 
     def __getitem__(self, identifier):
-        self.gets += 1
         identifier = str(identifier)
         value = self._latestModifications.get(identifier)
         if not value is None:
-            self.cacheHits += 1
             if value is _DELETED_RECORD:
                 raise KeyError(identifier)
             return value
         data = self._getData(identifier)
         if data is None:
             raise KeyError(identifier)
-        return str(data)
+        return data
 
     def get(self, identifier, default=None):
         try:
@@ -128,12 +124,9 @@ class SequentialStorage(object):
 
 
     def _getData(self, identifier):
-        if str(identifier) not in self._latestModifications and len(self._latestModifications) > self._maxModifications:
-            self._reopen()
-        data = self._luceneStore.getData(identifier)
-        if data is None:
-            return None
         dataBytesRef = self._luceneStore.getData(identifier)
+        if dataBytesRef is None:
+            return None
         return bytesRefToPyStr(dataBytesRef) if not dataBytesRef is None else None
 
     def _maybeCommit(self):
