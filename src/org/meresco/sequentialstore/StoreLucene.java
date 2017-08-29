@@ -202,8 +202,8 @@ public class StoreLucene {
                     if (liveDocs == null || liveDocs.get(docId)) {
                         LeafReaderContext readerContext = leaves.get(ReaderUtil.subIndex(this.docId, leaves));
                         try {
-                            BinaryDocValues dataBinaryDocValues = readerContext.reader().getBinaryDocValues(_IDENTIFIER_DOC_VALUE_FIELD);
-                            result = dataBinaryDocValues.get(docId - readerContext.docBase).utf8ToString();
+                            BinaryDocValues identifierBinaryDocValues = readerContext.reader().getBinaryDocValues(_IDENTIFIER_DOC_VALUE_FIELD);
+                            result = identifierBinaryDocValues.get(docId - readerContext.docBase).utf8ToString();
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
