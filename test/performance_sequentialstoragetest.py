@@ -87,7 +87,18 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
             c.close()
         #from seecr.utils.profileit import profile
         #profile(f)
-        # f()
+        f()
+
+        def iterkeys():
+            clearCaches()
+            c = SequentialStorage(directory)
+            t0 = time()
+            for i, identifier in enumerate(c.iterkeys()):
+                if i % 1000 == 0:
+                    print i, i/(time() - t0)
+            print "iterkeys", (time() - t0) / i
+            c.close()
+        iterkeys()
 
         def sequentialRead():
             clearCaches()
@@ -108,7 +119,6 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
             print "sequential read", T / N, T / bytes
             c.close()
         sequentialRead()
-
 
         def randomRead():
             clearCaches()
