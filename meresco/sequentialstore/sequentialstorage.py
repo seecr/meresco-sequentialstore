@@ -105,11 +105,11 @@ class SequentialStorage(object):
 
     def iteritems(self):
         self.commit()
-        return ((key, self._getData(key)) for key in self._luceneStore.iterkeys())
+        return ((item.identifier, bytesRefToPyStr(item.data)) for item in self._luceneStore.iteritems())
 
     def itervalues(self):
         self.commit()
-        return (self._getData(key) for key in self._luceneStore.iterkeys())
+        return (bytesRefToPyStr(data) for data in self._luceneStore.itervalues())
 
     def commit(self):
         self._luceneStore.commit()

@@ -183,39 +183,83 @@ public class StoreLucene {
         return newestKey;
     }
 
-
     public PyIterator<String> iterkeys() throws IOException {
         // Requires reopen to be called first.
+        PyIterator<Item> items = iteritems(true, false);
         return new PyIterator<String>() {
+            @Override
+            public String next() {
+                Item item = items.next();
+                return item != null ? item.identifier : null;
+            }
+        };
+    }
+
+    public PyIterator<BytesRef> itervalues() throws IOException {
+        // Requires reopen to be called first.
+        PyIterator<Item> items = iteritems(false, true);
+        return new PyIterator<BytesRef>() {
+            @Override
+            public BytesRef next() {
+                Item item = items.next();
+                return item != null ? item.data : null;
+            }
+        };
+    }
+
+    public PyIterator<Item> iteritems() throws IOException {
+        // Requires reopen to be called first.
+        return iteritems(true, true);
+    }
+
+    private PyIterator<Item> iteritems(boolean includeIdentifier, boolean includeData) throws IOException {
+        return new PyIterator<Item>() {
             private List<LeafReaderContext> leaves = StoreLucene.this.reader.leaves();
             Bits liveDocs = MultiFields.getLiveDocs(StoreLucene.this.reader);
             int maxDoc = StoreLucene.this.reader.maxDoc();
             int docId = 0;
 
             @Override
-            public String next() {
-                String result = null;
-                while (result == null) {
+            public Item next() {
+                String identifier = null;
+                BytesRef data = null;
+                while (identifier == null && data == null) {
                     if (docId >= maxDoc) {
                         return null;
                     }
                     if (liveDocs == null || liveDocs.get(docId)) {
                         LeafReaderContext readerContext = leaves.get(ReaderUtil.subIndex(this.docId, leaves));
                         try {
-                            BinaryDocValues identifierBinaryDocValues = readerContext.reader().getBinaryDocValues(_IDENTIFIER_DOC_VALUE_FIELD);
-                            result = identifierBinaryDocValues.get(docId - readerContext.docBase).utf8ToString();
+                            if (includeIdentifier) {
+                                BinaryDocValues identifierBinaryDocValues = readerContext.reader().getBinaryDocValues(_IDENTIFIER_DOC_VALUE_FIELD);
+                                identifier = identifierBinaryDocValues.get(docId - readerContext.docBase).utf8ToString();
+                            }
+                            if (includeData) {
+                                BinaryDocValues dataBinaryDocValues = readerContext.reader().getBinaryDocValues(_DATA_FIELD);
+                                data = dataBinaryDocValues.get(docId - readerContext.docBase);
+                            }
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
                     }
                     docId++;
                 }
-                return result;
+                return new Item(identifier, data);
             }
         };
     }
 
     public interface PyIterator<T> {
         public T next();
+    }
+
+    public class Item {
+        public String identifier;
+        public BytesRef data;
+
+        Item(String identifier, BytesRef data) {
+            this.identifier = identifier;
+            this.data = data;
+        }
     }
 }
