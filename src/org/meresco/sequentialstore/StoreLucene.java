@@ -39,7 +39,6 @@ import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReaderContext;
@@ -51,6 +50,7 @@ import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Bits;
@@ -62,6 +62,8 @@ public class StoreLucene {
     private IndexWriter writer;
     private IndexSearcher searcher;
     private long newestKey = 0;
+    private LeafReaderContext currentReaderContext;
+    private BinaryDocValues dataBinaryDocValues;
 
     private StringField _identifierField;
     private BinaryDocValuesField _identifierDocValueField;
@@ -69,6 +71,9 @@ public class StoreLucene {
     private NumericDocValuesField _numericKeyField;
     private BinaryDocValuesField _dataField;
     private Document _doc;
+
+
+
 
     private static String _IDENTIFIER_FIELD = "identifier";
     private static String _IDENTIFIER_DOC_VALUE_FIELD = "identifier";
@@ -109,6 +114,8 @@ public class StoreLucene {
             this.reader.close();
             this.reader = newReader;
             this.searcher = new IndexSearcher(this.reader);
+            this.currentReaderContext = null;
+            this.dataBinaryDocValues = null;
         }
     }
 
@@ -214,17 +221,13 @@ public class StoreLucene {
 
     private PyIterator<Item> iteritems(boolean includeIdentifier, boolean includeData) throws IOException {
         return new PyIterator<Item>() {
-            IndexReader currentReader = StoreLucene.this.reader;
             List<LeafReaderContext> leaves = StoreLucene.this.reader.leaves();
-            Bits liveDocs = MultiFields.getLiveDocs(currentReader);
-            int maxDoc = currentReader.maxDoc();
+            Bits liveDocs = MultiFields.getLiveDocs(StoreLucene.this.reader);
+            int maxDoc = StoreLucene.this.reader.maxDoc();
             int docId = 0;
 
             @Override
             public Item next() {
-                if (!StoreLucene.this.reader.equals(currentReader)) {
-                    throw new ConcurrentModificationException();
-                }
                 String identifier = null;
                 String data = null;
                 while (identifier == null && data == null) {
@@ -241,6 +244,8 @@ public class StoreLucene {
                             if (includeData) {
                                 data = _getData(docId, readerContext);
                             }
+                        } catch (AlreadyClosedException e) {
+                            throw new ConcurrentModificationException(e);
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
@@ -253,8 +258,11 @@ public class StoreLucene {
     }
 
     private String _getData(int docId, LeafReaderContext readerContext) throws IOException {
-        BinaryDocValues dataBinaryDocValues = readerContext.reader().getBinaryDocValues(_DATA_FIELD);
-        BytesRef bytesRef = dataBinaryDocValues.get(docId - readerContext.docBase);
+        if (this.dataBinaryDocValues == null || readerContext != this.currentReaderContext) {
+            this.currentReaderContext = readerContext;
+            this.dataBinaryDocValues = readerContext.reader().getBinaryDocValues(_DATA_FIELD);
+        }
+        BytesRef bytesRef = this.dataBinaryDocValues.get(docId - readerContext.docBase);
         byte[] bytes = bytesRef.bytes;
         if (bytesRef.offset > 0 || bytesRef.length != bytes.length) {
             bytes = Arrays.copyOfRange(bytesRef.bytes, bytesRef.offset, bytesRef.offset + bytesRef.length);

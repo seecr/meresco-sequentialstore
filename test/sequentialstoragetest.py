@@ -25,11 +25,9 @@
 ## end license ##
 
 from os.path import join, isfile
-from random import shuffle
 from subprocess import Popen, PIPE
-from shutil import rmtree
 
-from seecr.test import SeecrTestCase, CallTrace
+from seecr.test import SeecrTestCase
 
 from meresco.sequentialstore import SequentialStorage
 
@@ -206,5 +204,15 @@ class SequentialStorageTest(SeecrTestCase):
         expected = [('identifier%s' % i, 'data%s' % i) for i in xrange(999, 0, -2)]
         self.assertEquals(expected, list(s.iteritems()))
 
-
-
+    def testSignalConcurrentModification(self):
+        s = SequentialStorage(self.tempdir)
+        for i in xrange(99999):
+            s.add('identifier%s' % i, 'data%s' % i)
+        try:
+            for i in s.iterkeys():
+                s.delete('identifier%s' % i)
+            self.fail('should have failed with ConcurrentModificationException')
+        except AssertionError, e:
+            raise
+        except Exception, e:
+            self.assertEquals('java.util.ConcurrentModificationException: org.apache.lucene.store.AlreadyClosedException: this IndexReader is closed', str(e.getJavaException()))
