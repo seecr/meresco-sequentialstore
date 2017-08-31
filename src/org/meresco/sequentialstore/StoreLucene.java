@@ -38,6 +38,7 @@ import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReaderContext;
@@ -212,13 +213,20 @@ public class StoreLucene {
 
     private PyIterator<Item> iteritems(boolean includeIdentifier, boolean includeData) throws IOException {
         return new PyIterator<Item>() {
-            private List<LeafReaderContext> leaves = StoreLucene.this.reader.leaves();
-            Bits liveDocs = MultiFields.getLiveDocs(StoreLucene.this.reader);
-            int maxDoc = StoreLucene.this.reader.maxDoc();
+            IndexReader currentReader = null;
+            List<LeafReaderContext> leaves;
+            Bits liveDocs;
+            int maxDoc;
             int docId = 0;
 
             @Override
             public Item next() {
+                if (!StoreLucene.this.reader.equals(currentReader)) {
+                    this.currentReader = StoreLucene.this.reader;
+                    leaves = StoreLucene.this.reader.leaves();
+                    liveDocs = MultiFields.getLiveDocs(currentReader);
+                    maxDoc = currentReader.maxDoc();
+                }
                 String identifier = null;
                 String data = null;
                 while (identifier == null && data == null) {

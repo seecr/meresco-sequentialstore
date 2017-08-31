@@ -28,7 +28,6 @@
 from os import getenv, makedirs, listdir
 from os.path import join, isdir, isfile
 from warnings import warn
-from itertools import islice
 from base64 import standard_b64decode
 
 
@@ -52,7 +51,7 @@ class SequentialStorage(object):
             raise ValueError('data should not be None')
         identifier = str(identifier)
         data = str(data)
-        self._luceneStore.add(identifier, pyStrToBytesRef(data))
+        self._luceneStore.add(identifier, BytesRef(JArray('byte')(data)))
         self._latestModifications[identifier] = data
         self._maybeCommit()
 
@@ -152,14 +151,6 @@ class SequentialStorage(object):
 
 _DEFAULT_MAX_MODIFICATIONS = 10000
 _DELETED_RECORD = object()
-
-
-def pyStrToBytesRef(s):
-     return BytesRef(JArray('byte')(s))
-
-# def bytesRefToPyStr(bytesRef):
-#     return ''.join(chr(b & 0xFF) for b in islice(bytesRef.bytes, bytesRef.offset, bytesRef.offset + bytesRef.length))
-
 
 imported = False
 JArray = None

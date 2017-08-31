@@ -100,6 +100,17 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
             c.close()
         iterkeys()
 
+        def iteritems():
+            clearCaches()
+            c = SequentialStorage(directory)
+            t0 = time()
+            for i, item in enumerate(c.iteritems()):
+                if i % 1000 == 0:
+                    print i, i/(time() - t0)
+            print "iterkeys", (time() - t0) / i
+            c.close()
+        iteritems()
+
         def sequentialRead():
             clearCaches()
             t0 = time()
@@ -143,4 +154,4 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
 
 
 def clearCaches():
-    raw_input('''as root do:\n# sync; echo 3 > /proc/sys/vm/drop_caches\n''')
+    raw_input('''\nFile system caches need to be cleared before next performance test.\nAs root do:\n  # sync; echo 3 > /proc/sys/vm/drop_caches\n\n\nPress <Return> when ready...''')
