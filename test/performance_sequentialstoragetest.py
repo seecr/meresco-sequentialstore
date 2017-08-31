@@ -107,7 +107,7 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
             for i, item in enumerate(c.iteritems()):
                 if i % 1000 == 0:
                     print i, i/(time() - t0)
-            print "iterkeys", (time() - t0) / i
+            print "iteritems", (time() - t0) / i
             c.close()
         iteritems()
 
