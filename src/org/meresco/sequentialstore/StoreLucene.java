@@ -26,6 +26,8 @@ package org.meresco.sequentialstore;
 
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 
 import org.apache.lucene.document.BinaryDocValuesField;
@@ -150,7 +152,7 @@ public class StoreLucene {
         this.writer.deleteDocuments(new Term(_IDENTIFIER_FIELD, identifier));
     }
 
-    public BytesRef getData(String identifier) throws IOException {
+    public String getData(String identifier) throws IOException {
         TopDocs results = searcher.search(new TermQuery(new Term(_IDENTIFIER_FIELD, identifier)), 1);
         if (results.totalHits == 0) {
             return null;
@@ -158,11 +160,7 @@ public class StoreLucene {
         int docId = results.scoreDocs[0].doc;
         List<LeafReaderContext> leaves = this.reader.leaves();
         LeafReaderContext readerContext = leaves.get(ReaderUtil.subIndex(docId, leaves));
-        BinaryDocValues dataBinaryDocValues = readerContext.reader().getBinaryDocValues(_DATA_FIELD);
-        if (dataBinaryDocValues == null) {
-            return null;
-        }
-        return dataBinaryDocValues.get(docId - readerContext.docBase);
+        return _getData(docId, readerContext);
     }
 
     private long newKey() {
@@ -195,12 +193,12 @@ public class StoreLucene {
         };
     }
 
-    public PyIterator<BytesRef> itervalues() throws IOException {
+    public PyIterator<String> itervalues() throws IOException {
         // Requires reopen to be called first.
         PyIterator<Item> items = iteritems(false, true);
-        return new PyIterator<BytesRef>() {
+        return new PyIterator<String>() {
             @Override
-            public BytesRef next() {
+            public String next() {
                 Item item = items.next();
                 return item != null ? item.data : null;
             }
@@ -222,7 +220,7 @@ public class StoreLucene {
             @Override
             public Item next() {
                 String identifier = null;
-                BytesRef data = null;
+                String data = null;
                 while (identifier == null && data == null) {
                     if (docId >= maxDoc) {
                         return null;
@@ -235,8 +233,7 @@ public class StoreLucene {
                                 identifier = identifierBinaryDocValues.get(docId - readerContext.docBase).utf8ToString();
                             }
                             if (includeData) {
-                                BinaryDocValues dataBinaryDocValues = readerContext.reader().getBinaryDocValues(_DATA_FIELD);
-                                data = dataBinaryDocValues.get(docId - readerContext.docBase);
+                                data = _getData(docId, readerContext);
                             }
                         } catch (IOException e) {
                             throw new RuntimeException(e);
@@ -249,15 +246,25 @@ public class StoreLucene {
         };
     }
 
+    private String _getData(int docId, LeafReaderContext readerContext) throws IOException {
+        BinaryDocValues dataBinaryDocValues = readerContext.reader().getBinaryDocValues(_DATA_FIELD);
+        BytesRef bytesRef = dataBinaryDocValues.get(docId - readerContext.docBase);
+        byte[] bytes = bytesRef.bytes;
+        if (bytesRef.offset > 0 || bytesRef.length != bytes.length) {
+            bytes = Arrays.copyOfRange(bytesRef.bytes, bytesRef.offset, bytesRef.offset + bytesRef.length);
+        }
+        return Base64.getEncoder().encodeToString(bytes);
+    }
+
     public interface PyIterator<T> {
         public T next();
     }
 
     public class Item {
         public String identifier;
-        public BytesRef data;
+        public String data;
 
-        Item(String identifier, BytesRef data) {
+        Item(String identifier, String data) {
             this.identifier = identifier;
             this.data = data;
         }

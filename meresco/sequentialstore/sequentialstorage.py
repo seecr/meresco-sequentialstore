@@ -29,6 +29,7 @@ from os import getenv, makedirs, listdir
 from os.path import join, isdir, isfile
 from warnings import warn
 from itertools import islice
+from base64 import standard_b64decode
 
 
 class SequentialStorage(object):
@@ -105,11 +106,11 @@ class SequentialStorage(object):
 
     def iteritems(self):
         self.commit()
-        return ((item.identifier, bytesRefToPyStr(item.data)) for item in self._luceneStore.iteritems())
+        return ((item.identifier, standard_b64decode(item.data)) for item in self._luceneStore.iteritems())
 
     def itervalues(self):
         self.commit()
-        return (bytesRefToPyStr(data) for data in self._luceneStore.itervalues())
+        return (standard_b64decode(data) for data in self._luceneStore.itervalues())
 
     def commit(self):
         self._luceneStore.commit()
@@ -124,10 +125,8 @@ class SequentialStorage(object):
 
 
     def _getData(self, identifier):
-        dataBytesRef = self._luceneStore.getData(identifier)
-        if dataBytesRef is None:
-            return None
-        return bytesRefToPyStr(dataBytesRef) if not dataBytesRef is None else None
+        b64encodedData = self._luceneStore.getData(identifier)
+        return standard_b64decode(b64encodedData) if not b64encodedData is None else None
 
     def _maybeCommit(self):
         if len(self._latestModifications) > self._maxModifications:
@@ -158,8 +157,8 @@ _DELETED_RECORD = object()
 def pyStrToBytesRef(s):
      return BytesRef(JArray('byte')(s))
 
-def bytesRefToPyStr(bytesRef):
-    return ''.join(chr(b & 0xFF) for b in islice(bytesRef.bytes, bytesRef.offset, bytesRef.length))
+# def bytesRefToPyStr(bytesRef):
+#     return ''.join(chr(b & 0xFF) for b in islice(bytesRef.bytes, bytesRef.offset, bytesRef.offset + bytesRef.length))
 
 
 imported = False
