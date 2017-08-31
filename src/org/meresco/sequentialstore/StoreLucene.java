@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.ConcurrentModificationException;
 import java.util.List;
 
 import org.apache.lucene.document.BinaryDocValuesField;
@@ -213,19 +214,16 @@ public class StoreLucene {
 
     private PyIterator<Item> iteritems(boolean includeIdentifier, boolean includeData) throws IOException {
         return new PyIterator<Item>() {
-            IndexReader currentReader = null;
-            List<LeafReaderContext> leaves;
-            Bits liveDocs;
-            int maxDoc;
+            IndexReader currentReader = StoreLucene.this.reader;
+            List<LeafReaderContext> leaves = StoreLucene.this.reader.leaves();
+            Bits liveDocs = MultiFields.getLiveDocs(currentReader);
+            int maxDoc = currentReader.maxDoc();
             int docId = 0;
 
             @Override
             public Item next() {
                 if (!StoreLucene.this.reader.equals(currentReader)) {
-                    this.currentReader = StoreLucene.this.reader;
-                    leaves = StoreLucene.this.reader.leaves();
-                    liveDocs = MultiFields.getLiveDocs(currentReader);
-                    maxDoc = currentReader.maxDoc();
+                    throw new ConcurrentModificationException();
                 }
                 String identifier = null;
                 String data = null;
