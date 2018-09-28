@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014, 2017 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014, 2017-2018 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -59,9 +59,8 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
         f()
 
     def testSpeedAddsAndGetitems(self):
-        N = 5000000
-        directory = self.tempdir
-
+        N = 500000
+        directory = '/data/test/perfstore'
         if isdir(directory):
             rmtree(directory)
         makedirs(directory)

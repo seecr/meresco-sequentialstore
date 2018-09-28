@@ -2,7 +2,7 @@
  *
  * "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
  *
- * Copyright (C) 2017 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2017-2018 Seecr (Seek You Too B.V.) http://seecr.nl
  *
  * This file is part of "Meresco SequentialStore"
  *
@@ -34,17 +34,20 @@ import java.util.List;
 import org.apache.lucene.document.BinaryDocValuesField;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
+import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.MultiFields;
 import org.apache.lucene.index.ReaderUtil;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.index.TieredMergePolicy;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
@@ -69,11 +72,15 @@ public class StoreLucene {
     private BinaryDocValuesField _identifierDocValueField;
     private StoredField _storedKeyField;
     private NumericDocValuesField _numericKeyField;
-    private BinaryDocValuesField _dataField;
+    private Field _dataField;
     private Document _doc;
 
-
-
+    private static FieldType UNINDEXED_TYPE = new FieldType();
+    {
+        UNINDEXED_TYPE.setIndexOptions(IndexOptions.NONE);
+        UNINDEXED_TYPE.setStored(true);
+        UNINDEXED_TYPE.setTokenized(false);
+    }
 
     private static String _IDENTIFIER_FIELD = "identifier";
     private static String _IDENTIFIER_DOC_VALUE_FIELD = "identifier";
@@ -88,6 +95,13 @@ public class StoreLucene {
         config.setRAMBufferSizeMB(256.0); // faster
         config.setUseCompoundFile(false); // faster, for Lucene 4.4 and later
 
+        // start experiments 2018-09-21 to garbage collect more aggressively
+        config.setMaxBufferedDeleteTerms(512);
+        TieredMergePolicy tieredMergePolicy = (TieredMergePolicy) config.getMergePolicy();
+        tieredMergePolicy.setMaxMergedSegmentMB(255);
+        // tieredMergePolicy.setReclaimDeletesWeight(2.8f);
+        // end experiments 2018-09-21 to garbage collect more aggressively
+
         config.setIndexSort(new Sort(new SortField(_NUMERIC_KEY_FIELD, SortField.Type.LONG)));
         this.writer = new IndexWriter(directory, config);
         this.reader = DirectoryReader.open(this.writer, false, false);
@@ -99,7 +113,7 @@ public class StoreLucene {
         this._identifierDocValueField = new BinaryDocValuesField(_IDENTIFIER_DOC_VALUE_FIELD, new BytesRef());
         this._storedKeyField = new StoredField(_KEY_FIELD, 0L);
         this._numericKeyField = new NumericDocValuesField(_NUMERIC_KEY_FIELD, 0L);
-        this._dataField = new BinaryDocValuesField(_DATA_FIELD, new BytesRef());
+        this._dataField = new Field(_DATA_FIELD, new BytesRef(), UNINDEXED_TYPE);
         this._doc = new Document();
         this._doc.add(this._identifierField);
         this._doc.add(this._identifierDocValueField);
@@ -147,6 +161,14 @@ public class StoreLucene {
         }
     }
 
+    public void forceMerge(int maxNumSegments, boolean doWait) throws IOException {
+        this.writer.forceMerge(maxNumSegments, doWait);
+    }
+
+    public void forceMergeDeletes(boolean doWait) throws IOException {
+        this.writer.forceMergeDeletes(doWait);
+    }
+
     public void add(String identifier, BytesRef data) throws IOException {
         long newKey = newKey();
         this._identifierField.setStringValue(identifier);
@@ -167,9 +189,7 @@ public class StoreLucene {
             return null;
         }
         int docId = results.scoreDocs[0].doc;
-        List<LeafReaderContext> leaves = this.reader.leaves();
-        LeafReaderContext readerContext = leaves.get(ReaderUtil.subIndex(docId, leaves));
-        return _getData(docId, readerContext);
+        return _getData(docId);
     }
 
     private long newKey() {
@@ -242,7 +262,7 @@ public class StoreLucene {
                                 identifier = identifierBinaryDocValues.get(docId - readerContext.docBase).utf8ToString();
                             }
                             if (includeData) {
-                                data = _getData(docId, readerContext);
+                                data = _getData(docId);
                             }
                         } catch (AlreadyClosedException e) {
                             throw new ConcurrentModificationException(e);
@@ -257,12 +277,8 @@ public class StoreLucene {
         };
     }
 
-    private String _getData(int docId, LeafReaderContext readerContext) throws IOException {
-        if (this.dataBinaryDocValues == null || readerContext != this.currentReaderContext) {
-            this.currentReaderContext = readerContext;
-            this.dataBinaryDocValues = readerContext.reader().getBinaryDocValues(_DATA_FIELD);
-        }
-        BytesRef bytesRef = this.dataBinaryDocValues.get(docId - readerContext.docBase);
+    private String _getData(int docId) throws IOException {
+        BytesRef bytesRef = this.searcher.doc(docId).getField(_DATA_FIELD).binaryValue();
         byte[] bytes = bytesRef.bytes;
         if (bytesRef.offset > 0 || bytesRef.length != bytes.length) {
             bytes = Arrays.copyOfRange(bytesRef.bytes, bytesRef.offset, bytesRef.offset + bytesRef.length);

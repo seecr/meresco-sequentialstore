@@ -3,7 +3,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014, 2018 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -41,6 +41,7 @@ from warnings import simplefilter
 simplefilter('default')
 
 from performance_sequentialstoragetest import PerformanceSequentialStorageTest
+from diskspacetest import DiskSpaceTest
 
 if __name__ == '__main__':
     unittest.main()

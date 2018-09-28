@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014-2017 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2018 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 # Copyright (C) 2015 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
 # Copyright (C) 2015 Stichting Kennisnet http://www.kennisnet.nl
@@ -32,7 +32,7 @@ from base64 import standard_b64decode
 
 
 class SequentialStorage(object):
-    version = '3'
+    version = '4'
 
     def __init__(self, directory, maxModifications=None):
         _importFromJava()
@@ -118,10 +118,14 @@ class SequentialStorage(object):
     def close(self):
         if self._luceneStore is None:
             return
-        self.commit()
+        self._luceneStore.commit()
         self._luceneStore.close()
         self._luceneStore = None
 
+    def gc(self, maxNumSegments=1, doWait=False):
+        self._luceneStore.forceMerge(maxNumSegments, doWait)
+        if doWait:
+            self.commit()
 
     def _getData(self, identifier):
         b64encodedData = self._luceneStore.getData(identifier)
