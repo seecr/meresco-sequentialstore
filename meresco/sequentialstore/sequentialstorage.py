@@ -26,7 +26,7 @@
 ## end license ##
 
 from os import getenv, makedirs, listdir
-from os.path import join, isdir, isfile
+from os.path import join, isdir, isfile, getsize
 from warnings import warn
 from base64 import standard_b64decode
 
@@ -123,9 +123,20 @@ class SequentialStorage(object):
         self._luceneStore = None
 
     def gc(self, maxNumSegments=1, doWait=False):
-        self._luceneStore.forceMerge(maxNumSegments, doWait)
-        if doWait:
-            self.commit()
+        "Note: to prevent from potentially crashing on 'disk full' during active GC, a client needs to take care of handling (ignoring?) IOException."
+        try:
+            self._luceneStore.forceMerge(maxNumSegments, doWait)
+            if doWait:
+                self.commit()
+        except JavaError, e:
+            original = e.getJavaException()
+            if original.getClass().getName() == 'IOException':
+                raise IOError(original.getMessage())
+            raise
+
+    def getSizeOnDisk(self):
+        path = self._directory
+        return sum(getsize(join(path, f)) for f in listdir(path) if isfile(join(path, f)))
 
     def _getData(self, identifier):
         b64encodedData = self._luceneStore.getData(identifier)
@@ -160,6 +171,7 @@ imported = False
 JArray = None
 BytesRef = None
 StoreLucene = None
+JavaError = None
 
 def _importFromJava():
     global imported
@@ -169,7 +181,7 @@ def _importFromJava():
     from meresco_sequentialstore import initVM as initMerescoSequentialStore
     initMerescoSequentialStore()
     from org.meresco.sequentialstore import StoreLucene
-    from lucene import JArray
+    from lucene import JArray, JavaError
     from org.apache.lucene.util import BytesRef
     globals().update(locals())
     imported = True

@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014-2015, 2017 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2015, 2017-2018 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 # Copyright (C) 2015 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
 #
@@ -25,11 +25,15 @@
 ## end license ##
 
 from os.path import join, isfile
+from shutil import rmtree
 from subprocess import Popen, PIPE
 
 from seecr.test import SeecrTestCase
+from seecr.test.utils import sleepWheel
 
 from meresco.sequentialstore import SequentialStorage
+from sys import stdout
+from time import time
 
 
 class SequentialStorageTest(SeecrTestCase):
@@ -78,7 +82,6 @@ class SequentialStorageTest(SeecrTestCase):
 
     def testDataNotRequiredToComplyEncoding(self):
         s = ''.join(chr(x) for x in range(0, 256)) * 3
-        # s = ''.join(chr(0) for x in range(0, 256)) * 3
         sequentialStorage = SequentialStorage(self.tempdir)
         sequentialStorage.add(identifier='432', data=s)
         sequentialStorage.close()
@@ -155,7 +158,7 @@ class SequentialStorageTest(SeecrTestCase):
     def testVersionWritten(self):
         SequentialStorage(self.tempdir)
         version = open(join(self.tempdir, "sequentialstorage.version")).read()
-        self.assertEquals('3', version)
+        self.assertEquals('4', version)
 
     def testRefuseInitInNonEmptyDirWithNoVersionFile(self):
         open(join(self.tempdir, 'x'), 'w').close()
@@ -216,3 +219,59 @@ class SequentialStorageTest(SeecrTestCase):
             raise
         except Exception, e:
             self.assertEquals('java.util.ConcurrentModificationException: org.apache.lucene.store.AlreadyClosedException: this IndexReader is closed', str(e.getJavaException()))
+
+    def testGcWithoutWait(self):
+        directory = join(self.tempdir, 'store')
+        for x in xrange(3):
+            try:
+                s = SequentialStorage(directory)
+                for i in xrange(99999):
+                    s.add('identifier%s' % i, 'data%s' % i)
+                s.commit()
+                size = s.getSizeOnDisk()
+                self.assertTrue(size > 1000, size)
+                for i in xrange(0, 99999, 3):  # delete some
+                    s.delete('identifier%s' % i)
+                s.commit()
+                newSize = s.getSizeOnDisk()
+                self.assertTrue(newSize >= size, (newSize, size))
+
+                s.gc()
+                newSizeAfterGcStart = s.getSizeOnDisk()
+                self.assertTrue(newSizeAfterGcStart >= newSize, (newSizeAfterGcStart, newSize))  # grows a little initially
+                s.commit()
+                newSize = s.getSizeOnDisk()
+                self.assertTrue(newSize >= newSizeAfterGcStart, (newSize, newSizeAfterGcStart))
+
+                sleepWheel(1)
+                s.commit()
+                newSize = s.getSizeOnDisk()
+                self.assertTrue(newSize < newSizeAfterGcStart, (newSize, newSizeAfterGcStart))
+            finally:
+                s.close()
+                rmtree(directory)
+
+    def testGcWithWait(self):
+        directory = join(self.tempdir, 'store')
+        for x in xrange(3):
+            try:
+                s = SequentialStorage(directory)
+                for i in xrange(99999):
+                    s.add('identifier%s' % i, 'data%s' % i)
+                s.commit()
+                size = s.getSizeOnDisk()
+                self.assertTrue(size > 1000, size)
+                for i in xrange(0, 99999, 3):  # delete some
+                    s.delete('identifier%s' % i)
+                s.commit()
+                newSize = s.getSizeOnDisk()
+                self.assertTrue(newSize >= size, (newSize, size))
+                t = time()
+                s.gc(doWait=True)
+                took = time() - t
+                self.assertTrue(took < 0.5, took)
+                sizeAfterGc = s.getSizeOnDisk()
+                self.assertTrue(sizeAfterGc < newSize, (sizeAfterGc, newSize))
+            finally:
+                s.close()
+                rmtree(directory)
