@@ -174,7 +174,7 @@ class SequentialStorageTest(SeecrTestCase):
             SequentialStorage(self.tempdir)
             self.fail()
         except AssertionError, e:
-            self.assertEquals('The SequentialStorage at %s needs to be converted to the current version (with sequentialstore_convert_v2_to_v3).' % self.tempdir, str(e))
+            self.assertEquals('The SequentialStorage at %s needs to be converted to the current version.' % self.tempdir, str(e))
 
     def testRefuseInitWithDirectoryPathThatExistsAsFile(self):
         filePath = join(self.tempdir, 'x')

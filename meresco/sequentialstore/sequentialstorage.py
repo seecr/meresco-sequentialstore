@@ -154,7 +154,7 @@ class SequentialStorage(object):
         versionFile = join(self._directory, "sequentialstorage.version")
         if isdir(self._directory):
             if isfile(versionFile):
-                assert open(versionFile).read() == self.version, "The SequentialStorage at %s needs to be converted to the current version (with sequentialstore_convert_v2_to_v3)." % self._directory
+                assert open(versionFile).read() == self.version, "The SequentialStorage at %s needs to be converted to the current version." % self._directory
             else:
                 assert (listdir(self._directory) == []), "The %s directory is already in use for something other than a SequentialStorage." % self._directory
         else:

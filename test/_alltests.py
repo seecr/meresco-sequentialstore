@@ -3,7 +3,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014, 2017 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014, 2017-2018 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -44,7 +44,6 @@ from adddeletetomultisequentialtest import AddDeleteToMultiSequentialTest
 from sequentialstoragetest import SequentialStorageTest
 from multisequentialstoragetest import MultiSequentialStorageTest
 from storagecomponentadaptertest import StorageComponentAdapterTest
-from convertv2tov3test import ConvertV2ToV3Test
 
 
 if __name__ == '__main__':
