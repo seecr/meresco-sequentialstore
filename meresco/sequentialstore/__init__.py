@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014, 2017 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014, 2017-2018 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -45,3 +45,4 @@ from adddeletetomultisequential import AddDeleteToMultiSequential
 from multisequentialstorage import MultiSequentialStorage
 from sequentialstorage import SequentialStorage
 from storagecomponentadapter import StorageComponentAdapter
+from export.export import Export

@@ -44,7 +44,7 @@ from adddeletetomultisequentialtest import AddDeleteToMultiSequentialTest
 from sequentialstoragetest import SequentialStorageTest
 from multisequentialstoragetest import MultiSequentialStorageTest
 from storagecomponentadaptertest import StorageComponentAdapterTest
-
+from export.exporttest import ExportTest
 
 if __name__ == '__main__':
     unittest.main()
