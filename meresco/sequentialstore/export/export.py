@@ -54,27 +54,15 @@ class Export(object):
         self._openFile.write(self._compress.compress(BOUNDARY_SENTINEL))
 
     def __iter__(self):
-        if self._mode != 'r':
-            raise RuntimeError("reading from an export that was not opened in 'r' mode")
-        if self._openFile is None:
-            self._open()
-        decompress = decompressobj()
         data = ''
-        for l in self._openFile:
-            data += decompress.decompress(l)
+        for s in self._decompress():
+            data += s
             while True:
-                pieces = data.split(BOUNDARY_SENTINEL, 1)
-                if len(pieces) == 1:
+                record, sep, rest = data.partition(BOUNDARY_SENTINEL)
+                if not sep:
                     break
-                yield pieces[0].split('\n', 1)
-                data = pieces[-1]
-        data += decompress.flush()
-        while True:
-            pieces = data.split(BOUNDARY_SENTINEL, 1)
-            if len(pieces) == 1:
-                break
-            yield pieces[0].split('\n', 1)
-            data = pieces[-1]
+                yield record.split('\n', 1)
+                data = rest
 
     def close(self):
         if self._openFile is None:
@@ -94,6 +82,16 @@ class Export(object):
             versionLine = self._openFile.readline()
             assert self.VERSION_LINE == versionLine, "The SequentialStore export file does not match the expected version %s (%s)." % (self.version, repr(versionLine[:len(self.VERSION_LINE)]))
 
+    def _decompress(self):
+        if self._mode != 'r':
+            raise RuntimeError("reading from an export that was not opened in 'r' mode")
+        if self._openFile is None:
+            self._open()
+        decompress = decompressobj()
+        for l in self._openFile:
+            yield decompress.decompress(l)
+        yield decompress.flush()
+
     def __enter__(self):
         self._open()
         return self
@@ -102,4 +100,4 @@ class Export(object):
         self.close()
 
 
-BOUNDARY_SENTINEL = '\n=>> SequentialStore export record boundary <<=\n'  # Note: clearly this exact string must NEVER appear inside actual record data...
+BOUNDARY_SENTINEL = '\n=>> [{]} SequentialStore export record boundary {[}] <<=\n'  # Note: clearly this exact string must NEVER appear inside actual record data...

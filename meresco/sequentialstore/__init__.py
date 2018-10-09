@@ -45,4 +45,5 @@ from adddeletetomultisequential import AddDeleteToMultiSequential
 from multisequentialstorage import MultiSequentialStorage
 from sequentialstorage import SequentialStorage
 from storagecomponentadapter import StorageComponentAdapter
-from export.export import Export
+
+import export

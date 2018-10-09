@@ -26,25 +26,19 @@
 from seecrdeps import includeParentAndDeps  #DO_NOT_DISTRIBUTE
 includeParentAndDeps(__file__)              #DO_NOT_DISTRIBUTE
 
-from sys import argv, stdout
+from sys import argv
 
-from meresco.sequentialstore import SequentialStorage, Export
+from meresco.sequentialstore import SequentialStorage
 
 
 def main():
     if len(argv) != 3:
-        print 'Usage: %s <store directory> <export path>' % argv[0]
+        print 'Usage: %s <export path> <store directory>' % argv[0]
         exit(1)
 
-    directory, exportPath = argv[1:]
+    exportPath, directory = argv[1:]
     s = SequentialStorage(directory)
-    total = len(s)
-    with Export(exportPath, 'w') as export:
-        for i, (identifier, data) in enumerate(s.iteritems()):
-            if i % 1000 == 0:
-                print 'exporting item %s (%s%%)' % (i, (i * 100 / total))
-                stdout.flush()
-            export.write(identifier, data)
+    s.import_(exportPath)
     s.close()
 
 if __name__ == '__main__':
