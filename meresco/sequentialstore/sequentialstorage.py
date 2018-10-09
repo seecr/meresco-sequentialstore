@@ -60,6 +60,8 @@ def importVM():
     return VM
 importVM()
 
+from .export import Export
+
 
 class SequentialStorage(object):
     version = '2'
@@ -176,6 +178,24 @@ class SequentialStorage(object):
                 index[identifier] = key
         index.close()
         rename(tmpIndexDir, indexDir)
+    
+    def export(self, exportPath):
+        total = len(self)
+        with Export(exportPath, 'w') as export:
+            for i, (identifier, data) in enumerate(self.iteritems()):
+                if i % 1000 == 0:
+                    print 'exporting item %s (%s%%)' % (i, (i * 100 / total))
+                    sys.stdout.flush()
+                export.write(identifier, data)
+
+    def import_(self, importPath):
+        with Export(importPath) as export:
+            for i, (identifier, data) in enumerate(export):
+                if i % 1000 == 0:
+                    print 'importing item %s' % i
+                    sys.stdout.flush()
+                self.add(identifier, data)
+
 
     def events(self):
         for key, data in iter(self._seqStorageByNum):

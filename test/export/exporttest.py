@@ -23,10 +23,12 @@
 ## end license ##
 
 from seecr.test import SeecrTestCase
+from seecr.test.io import stdout_replaced
 
 from os.path import join, isfile
 
-from meresco.sequentialstore import SequentialStorage, Export
+from meresco.sequentialstore import SequentialStorage
+from meresco.sequentialstore.export import Export
 
 
 class ExportTest(SeecrTestCase):
@@ -94,3 +96,23 @@ class ExportTest(SeecrTestCase):
                 print identifier
         except RuntimeError, e:
             self.assertEquals("reading from an export that was not opened in 'r' mode", str(e))
+
+    def testSequentialStoreExportAndImport(self):
+        with stdout_replaced():
+            N = 19
+            s = SequentialStorage(join(self.tempdir, 'store'))
+            for i in xrange(N):
+                s.add("identifier%s" % i, ''.join(chr(j % 255) for j in xrange(i)))
+            s.export(join(self.tempdir, 'export'))
+            self.assertTrue(isfile(join(self.tempdir, 'export')))
+
+            s = SequentialStorage(join(self.tempdir, 'store2'))
+            s.import_(join(self.tempdir, 'export'))
+            s.close()
+
+            s = SequentialStorage(join(self.tempdir, 'store2'))
+            for i, identifier in enumerate(s.iterkeys()):
+                self.assertEquals('identifier%s' % i, identifier)
+            self.assertEquals(N-1, i)
+            for i in xrange(N):
+                self.assertEquals(''.join(chr(j % 255) for j in xrange(i)), s.get('identifier%s' % i))
