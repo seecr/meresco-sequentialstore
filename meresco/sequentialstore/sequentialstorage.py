@@ -25,10 +25,13 @@
 #
 ## end license ##
 
+import sys
 from os import getenv, makedirs, listdir
 from os.path import join, isdir, isfile, getsize
 from warnings import warn
 from base64 import standard_b64decode
+
+from .export import Export
 
 
 class SequentialStorage(object):
@@ -114,6 +117,23 @@ class SequentialStorage(object):
     def commit(self):
         self._luceneStore.commit()
         self._reopen()
+
+    def export(self, exportPath):
+        total = len(self)
+        with Export(exportPath, 'w') as export:
+            for i, (identifier, data) in enumerate(self.iteritems()):
+                if i % 1000 == 0:
+                    print 'exporting item %s (%s%%)' % (i, (i * 100 / total))
+                    sys.stdout.flush()
+                export.write(identifier, data)
+
+    def import_(self, importPath):
+        with Export(importPath) as export:
+            for i, (identifier, data) in enumerate(export):
+                if i % 1000 == 0:
+                    print 'importing item %s' % i
+                    sys.stdout.flush()
+                self.add(identifier, data)
 
     def close(self):
         if self._luceneStore is None:
