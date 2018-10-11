@@ -33,69 +33,24 @@ from meresco.sequentialstore.export import Export
 
 class ExportTest(SeecrTestCase):
     def testExport(self):
-        N = 1023
-        s = SequentialStorage(join(self.tempdir, 'store'))
-        for i in xrange(N):
-            s.add("identifier%s" % i, ''.join(chr(j % 255) for j in xrange(i)))
-        # print 'done filling seqstore, now building export'
-        with Export(join(self.tempdir, 'export'), 'w') as exp:
-            for identifier, data in s.iteritems():
-                exp.write(identifier, data)
-        self.assertTrue(isfile(join(self.tempdir, 'export')))
+        with stdout_replaced():
+            N = 1023
+            s = SequentialStorage(join(self.tempdir, 'store'))
+            for i in xrange(N):
+                s.add("identifier%s" % i, ''.join(chr(j % 255) for j in xrange(i)))
+            Export(join(self.tempdir, 'export')).export(s)
+            self.assertTrue(isfile(join(self.tempdir, 'export')))
 
-        # print 'building new seqstore from export'
-        s = SequentialStorage(join(self.tempdir, 'store2'))
-        with Export(join(self.tempdir, 'export')) as exp:
-            for identifier, data in exp:
-                s.add(identifier, data)
-        s.close()
+            s = SequentialStorage(join(self.tempdir, 'store2'))
+            Export(join(self.tempdir, 'export')).importInto(s)
+            s.close()
 
-        # print 'verifying new seqstore'
-        s = SequentialStorage(join(self.tempdir, 'store2'))
-        for i, identifier in enumerate(s.iterkeys()):
-            self.assertEquals('identifier%s' % i, identifier)
-        self.assertEquals(N-1, i)
-        # print 'verified identifiers'
-        for i in xrange(N):
-            # if i % 1000 == 0:
-                # print i
-                # import sys; sys.stdout.flush()
-            self.assertEquals(''.join(chr(j % 255) for j in xrange(i)), s.get('identifier%s' % i))
-
-    def testExportForReadingMustExist(self):
-        try:
-            exp = Export(join(self.tempdir, 'export'))
-            for identifier, data in exp:
-                print identifier
-        except IOError, e:
-            self.assertEquals("[Errno 2] No such file or directory: '%s/export'" % self.tempdir, str(e))
-
-    def testExportForReadingMustMatchVersion(self):
-        with open(join(self.tempdir, 'export'), 'w') as f:
-            f.write('Export format version: 0\n')
-        try:
-            exp = Export(join(self.tempdir, 'export'))
-            for identifier, data in exp:
-                print identifier
-        except AssertionError, e:
-            self.assertEquals("The SequentialStore export file does not match the expected version 1 ('Export format version: 0\\n').", str(e))
-
-    def testExportForReadingForbidsWriting(self):
-        with open(join(self.tempdir, 'export'), 'w') as f:
-            f.write('x')
-        exp = Export(join(self.tempdir, 'export'))
-        try:
-            exp.write('id0', 'will not work')
-        except RuntimeError, e:
-            self.assertEquals("writing to an export that was not opened in 'w' mode", str(e))
-
-    def testExportForWritingForbidsReading(self):
-        exp = Export(join(self.tempdir, 'export'), 'w')
-        try:
-            for identifier, data in exp:
-                print identifier
-        except RuntimeError, e:
-            self.assertEquals("reading from an export that was not opened in 'r' mode", str(e))
+            s = SequentialStorage(join(self.tempdir, 'store2'))
+            for i, identifier in enumerate(s.iterkeys()):
+                self.assertEquals('identifier%s' % i, identifier)
+            self.assertEquals(N-1, i)
+            for i in xrange(N):
+                self.assertEquals(''.join(chr(j % 255) for j in xrange(i)), s.get('identifier%s' % i))
 
     def testSequentialStoreExportAndImport(self):
         with stdout_replaced():
@@ -107,7 +62,7 @@ class ExportTest(SeecrTestCase):
             self.assertTrue(isfile(join(self.tempdir, 'export')))
 
             s = SequentialStorage(join(self.tempdir, 'store2'))
-            s.import_(join(self.tempdir, 'export'))
+            s.importFrom(join(self.tempdir, 'export'))
             s.close()
 
             s = SequentialStorage(join(self.tempdir, 'store2'))
@@ -116,3 +71,11 @@ class ExportTest(SeecrTestCase):
             self.assertEquals(N-1, i)
             for i in xrange(N):
                 self.assertEquals(''.join(chr(j % 255) for j in xrange(i)), s.get('identifier%s' % i))
+
+    def testImportFromExportMustMatchVersion(self):
+        with open(join(self.tempdir, 'export'), 'w') as f:
+            f.write('Export format version: 0\n')
+        try:
+            Export(join(self.tempdir, 'export')).importInto(None)
+        except AssertionError, e:
+            self.assertEquals("The SequentialStore export file does not match the expected version 1 ('Export format version: 0\\n').", str(e))
