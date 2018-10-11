@@ -41,12 +41,14 @@ class Export(object):
         self._openFile = open(self._path, 'w')
         self._openFile.write(self.VERSION_LINE)
         self._compress = compressobj()
-        size = len(seqStorage)
+        size = len(seqStorage._index)
         self._openFile.write('%s\n' % size)
-        for i, (identifier, data) in enumerate(seqStorage.iteritems()):
+        for i, (identifier, data, delete) in enumerate(seqStorage.events()):
             if i % 1000 == 0:
                 print 'exporting item %s (%s%%)' % (i, (i * 100 / size))
                 sys.stdout.flush()
+            if delete:
+                continue
             self._writeItem(identifier, data)
         self._openFile.write(self._compress.flush())
         self._compress = None

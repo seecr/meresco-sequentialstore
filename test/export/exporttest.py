@@ -46,7 +46,8 @@ class ExportTest(SeecrTestCase):
             s.close()
 
             s = SequentialStorage(join(self.tempdir, 'store2'))
-            for i, identifier in enumerate(s.iterkeys()):
+            for i, (identifier, data, delete) in enumerate(s.events()):
+                self.assertFalse(delete)
                 self.assertEquals('identifier%s' % i, identifier)
             self.assertEquals(N-1, i)
             for i in xrange(N):
@@ -66,7 +67,8 @@ class ExportTest(SeecrTestCase):
             s.close()
 
             s = SequentialStorage(join(self.tempdir, 'store2'))
-            for i, identifier in enumerate(s.iterkeys()):
+            for i, (identifier, data, delete) in enumerate(s.events()):
+                self.assertFalse(delete)
                 self.assertEquals('identifier%s' % i, identifier)
             self.assertEquals(N-1, i)
             for i in xrange(N):
