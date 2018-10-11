@@ -38,7 +38,7 @@ def main():
 
     exportPath, directory = argv[1:]
     s = SequentialStorage(directory)
-    s.import_(exportPath)
+    s.importFrom(exportPath)
     s.close()
 
 if __name__ == '__main__':
