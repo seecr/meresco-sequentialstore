@@ -119,21 +119,10 @@ class SequentialStorage(object):
         self._reopen()
 
     def export(self, exportPath):
-        total = len(self)
-        with Export(exportPath, 'w') as export:
-            for i, (identifier, data) in enumerate(self.iteritems()):
-                if i % 1000 == 0:
-                    print 'exporting item %s (%s%%)' % (i, (i * 100 / total))
-                    sys.stdout.flush()
-                export.write(identifier, data)
+        Export(exportPath).export(self)
 
-    def import_(self, importPath):
-        with Export(importPath) as export:
-            for i, (identifier, data) in enumerate(export):
-                if i % 1000 == 0:
-                    print 'importing item %s' % i
-                    sys.stdout.flush()
-                self.add(identifier, data)
+    def importFrom(self, importPath):
+        Export(importPath).importInto(self)
 
     def close(self):
         if self._luceneStore is None:
