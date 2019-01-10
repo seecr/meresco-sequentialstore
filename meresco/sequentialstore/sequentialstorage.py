@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014-2018 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2019 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 # Copyright (C) 2015 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
 # Copyright (C) 2015 Stichting Kennisnet http://www.kennisnet.nl
@@ -98,6 +98,8 @@ class SequentialStorage(object):
             yield identifier, data
 
     def __len__(self):
+        "Note: must not be called in inner loop of bulk processing, because of commit"
+        self.commit()  # not found a sure way yet to prevent this necessity
         return self._luceneStore.numDocs()
 
     def iterkeys(self):

@@ -2,7 +2,7 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014-2015, 2017-2018 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2015, 2017-2019 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 # Copyright (C) 2015 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
 #
@@ -61,6 +61,12 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEquals("2", sequentialStorageReloaded['def'])
         self.assertEquals(2, len(sequentialStorageReloaded))
         self.assertEquals(["abc", "def"], list(sequentialStorageReloaded.iterkeys()))
+
+    def testLenTakesDeletesIntoAccount(self):
+        sequentialStorage = SequentialStorage(self.tempdir)
+        sequentialStorage.add(identifier='abc', data="1")
+        sequentialStorage.delete(identifier='abc')
+        self.assertEquals(0, len(sequentialStorage))
 
     def testGetMultiple(self):
         sequentialStorage = SequentialStorage(self.tempdir)
