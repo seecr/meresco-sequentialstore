@@ -43,6 +43,13 @@ class MultiSequentialStorageTest(SeecrTestCase):
         ss = SequentialStorage(join(self.tempdir, 'rdf'))
         self.assertEquals('<rdf/>', ss['2'])
 
+    def testAddToExistingEmptyStore(self):
+        s = MultiSequentialStorage(self.tempdir)
+        s.addData('1', "oai_dc", "<data/>")
+        s.deleteData('1', 'oai_dc')
+        s.commit()
+        s.addData('1', "oai_dc", "<data/>")
+
     def testGetForUnknownPart(self):
         s = MultiSequentialStorage(self.tempdir)
         self.assertRaises(KeyError, lambda: s.getData('42', 'oai_dc'))

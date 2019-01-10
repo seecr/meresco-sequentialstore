@@ -81,7 +81,7 @@ class MultiSequentialStorage(object):
 
     def _getStorage(self, name, mayCreate=False):
         storage = self._storage.get(name)
-        if not storage:
+        if storage is None:
             directory = join(self._directory, escapeFilename(name))
             if isdir(directory) or mayCreate:
                 self._storage[name] = storage = SequentialStorage(directory)
