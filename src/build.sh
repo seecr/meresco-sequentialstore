@@ -44,7 +44,7 @@ fi
 
 luceneJarDir=/usr/lib64/python${pythonVersion}/site-packages/lucene
 if [ -f /etc/debian_version ]; then
-    javac=/usr/lib/jvm/java-7-openjdk-amd64/bin/javac
+    javac=/usr/lib/jvm/java-8-openjdk-amd64/bin/javac
     luceneJarDir=/usr/lib/python${pythonVersion}/dist-packages/lucene
 fi
 
