@@ -44,7 +44,7 @@ import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.index.MultiFields;
+import org.apache.lucene.index.MultiBits;
 import org.apache.lucene.index.ReaderUtil;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.TieredMergePolicy;
@@ -96,7 +96,7 @@ public class StoreLucene {
         config.setUseCompoundFile(false); // faster, for Lucene 4.4 and later
 
         // start experiments 2018-09-21 to garbage collect more aggressively
-        config.setMaxBufferedDeleteTerms(512);
+        //config.setMaxBufferedDeleteTerms(512);
         TieredMergePolicy tieredMergePolicy = (TieredMergePolicy) config.getMergePolicy();
         tieredMergePolicy.setMaxMergedSegmentMB(255);
         // tieredMergePolicy.setReclaimDeletesWeight(2.8f);
@@ -134,7 +134,7 @@ public class StoreLucene {
     }
 
     public int numDocs() {
-        return this.writer.numDocs();
+        return this.writer.getDocStats().numDocs;
     }
 
     public void commit() throws IOException {
@@ -185,7 +185,7 @@ public class StoreLucene {
 
     public String getData(String identifier) throws IOException {
         TopDocs results = searcher.search(new TermQuery(new Term(_IDENTIFIER_FIELD, identifier)), 1);
-        if (results.totalHits == 0) {
+        if (results.totalHits.value == 0) {
             return null;
         }
         int docId = results.scoreDocs[0].doc;
@@ -242,7 +242,7 @@ public class StoreLucene {
     private PyIterator<Item> iteritems(boolean includeIdentifier, boolean includeData) throws IOException {
         return new PyIterator<Item>() {
             List<LeafReaderContext> leaves = StoreLucene.this.reader.leaves();
-            Bits liveDocs = MultiFields.getLiveDocs(StoreLucene.this.reader);
+            Bits liveDocs = MultiBits.getLiveDocs(StoreLucene.this.reader);
             int maxDoc = StoreLucene.this.reader.maxDoc();
             int docId = 0;
 
@@ -259,7 +259,11 @@ public class StoreLucene {
                         try {
                             if (includeIdentifier) {
                                 BinaryDocValues identifierBinaryDocValues = readerContext.reader().getBinaryDocValues(_IDENTIFIER_DOC_VALUE_FIELD);
-                                identifier = identifierBinaryDocValues.get(docId - readerContext.docBase).utf8ToString();
+                                if (identifierBinaryDocValues.advanceExact(docId - readerContext.docBase)) {
+                                    identifier = identifierBinaryDocValues.binaryValue().utf8ToString();
+                                }
+
+                                //identifier = identifierBinaryDocValues.get(docId - readerContext.docBase).utf8ToString();
                             }
                             if (includeData) {
                                 data = _getData(docId);

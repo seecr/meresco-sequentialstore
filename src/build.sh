@@ -27,10 +27,10 @@
 set -o errexit
 
 mydir=$(cd $(dirname $0); pwd)
-buildDir=$mydir/build
+buildDir=${mydir}/build
 libDir=$1
-if [ -z "$libDir" ]; then
-    libDir=$(dirname $mydir)/lib
+if [ -z "${libDir}" ]; then
+    libDir=$(dirname ${mydir})/lib
 fi
 
 pythonVersion=$(python --version 2>&1 | awk '{print $2}' | cut -d. -f-2)
@@ -39,52 +39,55 @@ if [ -f /etc/debian_version ]; then
     pythonPackagesDir=/usr/lib/python${pythonVersion}/dist-packages
 fi
 
-JCC_VERSION=3.0
+JCC_VERSION=3.6
 if ! grep -q "VERSION=\"${JCC_VERSION}\"" ${pythonPackagesDir}/jcc/config.py; then
     echo "JCC ${JCC_VERSION} is required."
     exit 1
 fi
 
-JAVA_VERSION=8
-javac=/usr/lib/jvm/java-${JAVA_VERSION}-openjdk-amd64/bin/javac
-if [ ! -f "$javac" ]; then
-    javac=/usr/lib/jvm/java-1.${JAVA_VERSION}.0-openjdk.x86_64/bin/javac
+JAVA_HOME=
+test -f /etc/debian_version && JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+test -f /etc/redhat_version && JAVA_HOME=/usr/lib/jvm/java
+if [ -z "${JAVA_HOME}" ]; then
+    echo "Unable to determine JAVA_HOME"
+    exit 0
 fi
-if [ ! -f "$javac" ]; then
-    javac=/usr/lib/jvm/java-1.${JAVA_VERSION}.0/bin/javac
+
+if [ ! -d "${JAVA_HOME}" ]; then
+    echo "${JAVA_HOME} does not exist"
+    exit 0
 fi
-if [ ! -f "$javac" ]; then
-    echo "No Java ${JAVA_VERSION} javac found."
-    exit 1
-fi
+
+export JAVA_HOME
+javac=${JAVA_HOME}/bin/javac
 
 luceneJarDir=${pythonPackagesDir}/lucene
 
-LUCENE_VERSION=6.5.0
+LUCENE_VERSION=8.1.1
 classpath=${luceneJarDir}/lucene-core-${LUCENE_VERSION}.jar:${luceneJarDir}/lucene-analyzers-common-${LUCENE_VERSION}.jar:${luceneJarDir}/lucene-facet-${LUCENE_VERSION}.jar:${luceneJarDir}/lucene-queries-${LUCENE_VERSION}.jar:${luceneJarDir}/lucene-misc-${LUCENE_VERSION}.jar
 
-rm -rf $buildDir $libDir
-mkdir --parents $buildDir $libDir
+rm -rf ${buildDir} ${libDir}
+mkdir --parents ${buildDir} ${libDir}
 
 ${javac} -cp ${classpath} -d ${buildDir} org/meresco/sequentialstore/*.java
-(cd $buildDir; jar -c org > $buildDir/meresco-sequentialstore.jar)
+(cd $buildDir; jar -c org > ${buildDir}/meresco-sequentialstore.jar)
 
 python -m jcc.__main__ \
-    --root $mydir/root \
+    --root ${mydir}/root \
     --use_full_names \
     --import lucene \
     --shared \
     --arch x86_64 \
-    --jar $buildDir/meresco-sequentialstore.jar \
+    --jar ${buildDir}/meresco-sequentialstore.jar \
     --python meresco_sequentialstore \
     --build \
     --install
 
-rootLibDir=$mydir/root/usr/lib64/python${pythonVersion}/site-packages/meresco_sequentialstore
+rootLibDir=${mydir}/root/usr/lib64/python${pythonVersion}/site-packages/meresco_sequentialstore
 if [ -f /etc/debian_version ]; then
-    rootLibDir=$mydir/root/usr/local/lib/python${pythonVersion}/dist-packages/meresco_sequentialstore
+    rootLibDir=${mydir}/root/usr/local/lib/python${pythonVersion}/dist-packages/meresco_sequentialstore
 fi
 
-mv ${rootLibDir} $libDir/
+mv ${rootLibDir} ${libDir}/
 
-rm -rf $buildDir  $mydir/root $mydir/meresco_sequentialstore.egg-info
+rm -rf ${buildDir}  ${mydir}/root ${mydir}/meresco_sequentialstore.egg-info
