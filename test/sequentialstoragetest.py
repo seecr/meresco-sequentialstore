@@ -164,7 +164,7 @@ class SequentialStorageTest(SeecrTestCase):
     def testVersionWritten(self):
         SequentialStorage(self.tempdir)
         version = open(join(self.tempdir, "sequentialstorage.version")).read()
-        self.assertEquals('4', version)
+        self.assertEquals('5', version)
 
     def testRefuseInitInNonEmptyDirWithNoVersionFile(self):
         open(join(self.tempdir, 'x'), 'w').close()
@@ -215,7 +215,7 @@ class SequentialStorageTest(SeecrTestCase):
 
     def testSignalConcurrentModification(self):
         s = SequentialStorage(self.tempdir)
-        for i in xrange(99999):
+        for i in xrange(999999):
             s.add('identifier%s' % i, 'data%s' % i)
         try:
             for i in s.iterkeys():

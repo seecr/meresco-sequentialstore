@@ -35,7 +35,7 @@ from .export import Export
 
 
 class SequentialStorage(object):
-    version = '4'
+    version = '5'
 
     def __init__(self, directory, maxModifications=None):
         _importFromJava()
