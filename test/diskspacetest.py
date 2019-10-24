@@ -27,7 +27,7 @@ from os import makedirs, listdir
 from os.path import isdir, join, getsize, isfile
 from shutil import rmtree
 from random import randint
-from time import time, sleep
+from time import time
 
 from seecr.test import SeecrTestCase
 from seecr.test.utils import sleepWheel

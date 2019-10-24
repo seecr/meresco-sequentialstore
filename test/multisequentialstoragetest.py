@@ -26,7 +26,6 @@
 
 from seecr.test import SeecrTestCase
 
-from os import remove
 from os.path import join, isdir
 
 from meresco.sequentialstore import MultiSequentialStorage, SequentialStorage

@@ -25,7 +25,6 @@
 #
 ## end license ##
 
-import sys
 from os import getenv, makedirs, listdir
 from os.path import join, isdir, isfile, getsize
 from warnings import warn

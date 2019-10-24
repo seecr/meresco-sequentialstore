@@ -32,7 +32,6 @@ from seecr.test import SeecrTestCase
 from seecr.test.utils import sleepWheel
 
 from meresco.sequentialstore import SequentialStorage
-from sys import stdout
 from time import time
 
 
