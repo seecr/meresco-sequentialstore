@@ -24,7 +24,7 @@
 ## end license ##
 
 from os import makedirs
-from os.path import isdir
+from os.path import isdir, join
 from shutil import rmtree
 from time import time
 from random import randint
@@ -60,7 +60,7 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
 
     def testSpeedAddsAndGetitems(self):
         N = 500000
-        directory = '/data/test/perfstore'
+        directory = join(self.tempdir, 'perfstore')
         if isdir(directory):
             rmtree(directory)
         makedirs(directory)

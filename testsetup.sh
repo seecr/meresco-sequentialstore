@@ -27,16 +27,13 @@
 set -o errexit
 rm -rf tmp build
 mydir=$(cd $(dirname $0); pwd)
-source /usr/share/seecr-test/functions
 
-pyversion="2.6"
-if distro_is_debian_wheezy; then
-    pyversion="2.7"
-fi
+source /usr/share/seecr-tools/functions.d/test
 
+pyversion="2.7"
 VERSION="x.y.z"
 
-definePythonVars $pyversion
+definePythonVars ${pyversion}
 (cd $mydir/src; ./build.sh ${SITEPACKAGES}/meresco/sequentialstore)
 ${PYTHON} setup.py install --root tmp
 cp -r test tmp/test

@@ -42,7 +42,7 @@ class DiskSpaceTest(SeecrTestCase):
 
         N = 100000
         M = N * 4
-        directory = '/data/test/diskspacetest'
+        directory = join(self.tempdir, 'diskspacetest')
         if isdir(directory):
             rmtree(directory)
         storeDir = join(directory, 'store')
