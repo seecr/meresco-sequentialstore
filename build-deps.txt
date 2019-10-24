@@ -1,6 +1,6 @@
-jcc (>= 3.0)
-jcc (<< 3.1)
+jcc (>= 3.6)
+jcc (<< 3.7)
 python-setuptools
 gcc
-pylucene (>= 6.5.0)
-pylucene (<< 6.6.0)
+pylucene (>= 8.1.1)
+pylucene (<< 8.2.0)
