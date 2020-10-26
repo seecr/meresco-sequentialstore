@@ -32,16 +32,17 @@ libDir=$1
 if [ -z "${libDir}" ]; then
     libDir=$(dirname ${mydir})/lib
 fi
-
-pythonVersion=$(python --version 2>&1 | awk '{print $2}' | cut -d. -f-2)
+PYTHON=python3
+pythonVersion=$(${PYTHON} --version 2>&1 | awk '{print $2}' | cut -d. -f-2)
+pythonMajorVersion=$(${PYTHON} -c 'import sys; print(sys.version_info.major)')
 pythonPackagesDir=/usr/lib64/python${pythonVersion}/site-packages
 if [ -f /etc/debian_version ]; then
-    pythonPackagesDir=/usr/lib/python${pythonVersion}/dist-packages
+    pythonPackagesDir=/usr/lib/python${pythonMajorVersion}/dist-packages
 fi
 
-JCC_VERSION=3.6
-if ! grep -q "VERSION=\"${JCC_VERSION}\"" ${pythonPackagesDir}/jcc/config.py; then
-    echo "JCC ${JCC_VERSION} is required."
+JCC_VERSION=$(${PYTHON} -c "from jcc.config import VERSION; print(VERSION)")
+if [ "${JCC_VERSION}" != "3.6" ]; then
+    echo "JCC 3.6 is required."
     exit 1
 fi
 
@@ -62,6 +63,10 @@ export JAVA_HOME
 javac=${JAVA_HOME}/bin/javac
 
 luceneJarDir=${pythonPackagesDir}/lucene
+if [ ! -d "${luceneJarDir}" ] ; then
+    echo "Cannot find lucene in ${pythonPackagesDir}"
+    exit 1
+fi
 
 LUCENE_VERSION=8.1.1
 classpath=${luceneJarDir}/lucene-core-${LUCENE_VERSION}.jar:${luceneJarDir}/lucene-analyzers-common-${LUCENE_VERSION}.jar:${luceneJarDir}/lucene-facet-${LUCENE_VERSION}.jar:${luceneJarDir}/lucene-queries-${LUCENE_VERSION}.jar:${luceneJarDir}/lucene-misc-${LUCENE_VERSION}.jar
@@ -72,7 +77,7 @@ mkdir --parents ${buildDir} ${libDir}
 ${javac} -cp ${classpath} -d ${buildDir} org/meresco/sequentialstore/*.java
 (cd $buildDir; jar -c org > ${buildDir}/meresco-sequentialstore.jar)
 
-python -m jcc.__main__ \
+${PYTHON} -m jcc.__main__ \
     --root ${mydir}/root \
     --use_full_names \
     --import lucene \
@@ -83,7 +88,7 @@ python -m jcc.__main__ \
     --build \
     --install
 
-rootLibDir=${mydir}/root/usr/lib64/python${pythonVersion}/site-packages/meresco_sequentialstore
+rootLibDir=${mydir}/root/usr/lib64/python${pythonMajorVersion}/site-packages/meresco_sequentialstore
 if [ -f /etc/debian_version ]; then
     rootLibDir=${mydir}/root/usr/local/lib/python${pythonVersion}/dist-packages/meresco_sequentialstore
 fi
