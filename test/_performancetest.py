@@ -40,8 +40,8 @@ import unittest
 from warnings import simplefilter
 simplefilter('default')
 
-from performance_sequentialstoragetest import PerformanceSequentialStorageTest
-from diskspacetest import DiskSpaceTest
+from .performance_sequentialstoragetest import PerformanceSequentialStorageTest
+from .diskspacetest import DiskSpaceTest
 
 if __name__ == '__main__':
     unittest.main()

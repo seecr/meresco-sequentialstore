@@ -24,9 +24,9 @@
 ## end license ##
 
 
-from cStringIO import StringIO
+from io import StringIO
 
-from adddeletetomultisequential import AddDeleteToMultiSequential
+from .adddeletetomultisequential import AddDeleteToMultiSequential
 
 
 class StorageComponentAdapter(AddDeleteToMultiSequential):

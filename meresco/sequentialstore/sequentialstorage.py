@@ -52,8 +52,7 @@ class SequentialStorage(object):
         if data is None:
             raise ValueError('data should not be None')
         identifier = str(identifier)
-        data = str(data)
-        self._luceneStore.add(identifier, BytesRef(JArray('byte')(data)))
+        self._luceneStore.add(identifier, BytesRef(data.encode()))
         self._latestModifications[identifier] = data
         self._maybeCommit()
 
@@ -103,17 +102,17 @@ class SequentialStorage(object):
 
     def iterkeys(self):
         self.commit()
-        return self._luceneStore.iterkeys()
+        return iter(self._luceneStore.keys())
 
     __iter__ = iterkeys
 
     def iteritems(self):
         self.commit()
-        return ((item.identifier, standard_b64decode(item.data)) for item in self._luceneStore.iteritems())
+        return ((item.identifier, standard_b64decode(item.data)) for item in self._luceneStore.items())
 
     def itervalues(self):
         self.commit()
-        return (standard_b64decode(data) for data in self._luceneStore.itervalues())
+        return (standard_b64decode(data) for data in self._luceneStore.values())
 
     def commit(self):
         self._luceneStore.commit()
@@ -138,7 +137,7 @@ class SequentialStorage(object):
             self._luceneStore.forceMerge(maxNumSegments, doWait)
             if doWait:
                 self.commit()
-        except JavaError, e:
+        except JavaError as e:
             original = e.getJavaException()
             if original.getClass().getName() == 'IOException':
                 raise IOError(original.getMessage())

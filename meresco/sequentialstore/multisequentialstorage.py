@@ -29,7 +29,7 @@ from os.path import join, isdir
 from os import listdir, makedirs
 from escaping import escapeFilename, unescapeFilename
 
-from sequentialstorage import SequentialStorage
+from .sequentialstorage import SequentialStorage
 
 
 class MultiSequentialStorage(object):
@@ -49,7 +49,7 @@ class MultiSequentialStorage(object):
 
     def deleteData(self, identifier, name=None):
         if name is None:
-            for storage in self._storage.values():
+            for storage in list(self._storage.values()):
                 storage.delete(identifier)
         else:
             self._getStorage(name).delete(identifier)
@@ -67,16 +67,16 @@ class MultiSequentialStorage(object):
         return storage.getMultiple(identifiers, ignoreMissing=ignoreMissing)
 
     def handleShutdown(self):
-        print 'handle shutdown: saving MultiSequentialStorage %s' % self._directory
+        print('handle shutdown: saving MultiSequentialStorage %s' % self._directory)
         from sys import stdout; stdout.flush()
         self.close()
 
     def close(self):
-        for storage in self._storage.itervalues():
+        for storage in self._storage.values():
             storage.close()
 
     def commit(self):
-        for storage in self._storage.itervalues():
+        for storage in self._storage.values():
             storage.commit()
 
     def _getStorage(self, name, mayCreate=False):

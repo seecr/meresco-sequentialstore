@@ -30,7 +30,8 @@ from sys import exit, path as sysPath                                           
 mydir = dirname(abspath(__file__))                                               #DO_NOT_DISTRIBUTE
 srcDir = join(dirname(dirname(mydir)), 'src')                                    #DO_NOT_DISTRIBUTE
 libDir = join(dirname(dirname(mydir)), 'lib')                                    #DO_NOT_DISTRIBUTE
-sofile = join(libDir, 'meresco_sequentialstore', '_meresco_sequentialstore.so')  #DO_NOT_DISTRIBUTE
+sofilename = "_meresco_sequentialstore.cpython-37m-x86_64-linux-gnu.so"          #DO_NOT_DISTRIBUTE
+sofile = join(libDir, 'meresco_sequentialstore', sofilename)                     #DO_NOT_DISTRIBUTE
 javaSources = glob(join(srcDir, 'org','meresco','sequentialstore', '*.java'))    #DO_NOT_DISTRIBUTE
 if javaSources:                                                                  #DO_NOT_DISTRIBUTE
     lastMtime = max(stat(f).st_mtime for f in javaSources)                       #DO_NOT_DISTRIBUTE
@@ -40,10 +41,10 @@ if javaSources:                                                                 
             exit(result)                                                         #DO_NOT_DISTRIBUTE
 sysPath.insert(0, libDir)                                                        #DO_NOT_DISTRIBUTE
 
-from __version__ import VERSION
-from adddeletetomultisequential import AddDeleteToMultiSequential
-from multisequentialstorage import MultiSequentialStorage
-from sequentialstorage import SequentialStorage
-from storagecomponentadapter import StorageComponentAdapter
+from .__version__ import VERSION
+from .adddeletetomultisequential import AddDeleteToMultiSequential
+from .multisequentialstorage import MultiSequentialStorage
+from .sequentialstorage import SequentialStorage
+from .storagecomponentadapter import StorageComponentAdapter
 
-import export
+from . import export

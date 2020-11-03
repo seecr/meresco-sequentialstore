@@ -39,8 +39,8 @@ class SequentialStorageTest(SeecrTestCase):
     def testAddGetItem(self):
         sequentialStorage = SequentialStorage(self.tempdir)
         sequentialStorage.add(identifier='abc', data="1")
-        self.assertEquals("1", sequentialStorage['abc'])
-        self.assertEquals(1, len(sequentialStorage))
+        self.assertEqual("1", sequentialStorage['abc'])
+        self.assertEqual(1, len(sequentialStorage))
 
     def testKeyErrorForUnknownKey(self):
         sequentialStorage = SequentialStorage(self.tempdir)
@@ -50,22 +50,22 @@ class SequentialStorageTest(SeecrTestCase):
         sequentialStorage = SequentialStorage(self.tempdir)
         sequentialStorage.add(identifier='abc', data="1")
         sequentialStorage.add(identifier='def', data="2")
-        self.assertEquals(2, len(sequentialStorage))
+        self.assertEqual(2, len(sequentialStorage))
         sequentialStorage.commit()
-        self.assertEquals("1", sequentialStorage['abc'])
+        self.assertEqual("1", sequentialStorage['abc'])
 
         sequentialStorage.close()
         sequentialStorageReloaded = SequentialStorage(self.tempdir)
-        self.assertEquals("1", sequentialStorageReloaded['abc'])
-        self.assertEquals("2", sequentialStorageReloaded['def'])
-        self.assertEquals(2, len(sequentialStorageReloaded))
-        self.assertEquals(["abc", "def"], list(sequentialStorageReloaded.iterkeys()))
+        self.assertEqual("1", sequentialStorageReloaded['abc'])
+        self.assertEqual("2", sequentialStorageReloaded['def'])
+        self.assertEqual(2, len(sequentialStorageReloaded))
+        self.assertEqual(["abc", "def"], list(sequentialStorageReloaded.keys()))
 
     def testLenTakesDeletesIntoAccount(self):
         sequentialStorage = SequentialStorage(self.tempdir)
         sequentialStorage.add(identifier='abc', data="1")
         sequentialStorage.delete(identifier='abc')
-        self.assertEquals(0, len(sequentialStorage))
+        self.assertEqual(0, len(sequentialStorage))
 
     def testGetMultiple(self):
         sequentialStorage = SequentialStorage(self.tempdir)
@@ -74,7 +74,7 @@ class SequentialStorageTest(SeecrTestCase):
         sequentialStorage.close()
 
         sequentialStorageReloaded = SequentialStorage(self.tempdir)
-        self.assertEquals([('abc', '1'), ('def', '2')], list(sequentialStorageReloaded.getMultiple(identifiers=['abc', 'def'])))
+        self.assertEqual([('abc', '1'), ('def', '2')], list(sequentialStorageReloaded.getMultiple(identifiers=['abc', 'def'])))
 
     def testGetMultipleCoercesToStr(self):
         sequentialStorage = SequentialStorage(self.tempdir)
@@ -83,7 +83,7 @@ class SequentialStorageTest(SeecrTestCase):
         sequentialStorage.close()
 
         sequentialStorageReloaded = SequentialStorage(self.tempdir)
-        self.assertEquals([('1', 'x'), ('2', 'y')], list(sequentialStorageReloaded.getMultiple(identifiers=[1, 2])))
+        self.assertEqual([('1', 'x'), ('2', 'y')], list(sequentialStorageReloaded.getMultiple(identifiers=[1, 2])))
 
     def testDataNotRequiredToComplyEncoding(self):
         s = ''.join(chr(x) for x in range(0, 256)) * 3
@@ -92,19 +92,19 @@ class SequentialStorageTest(SeecrTestCase):
         sequentialStorage.close()
 
         sequentialStorageReloaded = SequentialStorage(self.tempdir)
-        self.assertEquals(s, sequentialStorageReloaded['432'])
+        self.assertEqual(s, sequentialStorageReloaded['432'])
 
     def testGetMultipleDifferentOrder(self):
         sequentialStorage = SequentialStorage(self.tempdir)
         sequentialStorage.add(identifier='def', data="1")
         sequentialStorage.add(identifier='abc', data="2")
-        self.assertEquals([('abc', '2'), ('def', '1')], list(sequentialStorage.getMultiple(identifiers=['abc', 'def'])))
+        self.assertEqual([('abc', '2'), ('def', '1')], list(sequentialStorage.getMultiple(identifiers=['abc', 'def'])))
 
     def testMultipleIgnoreMissing(self):
         sequentialStorage = SequentialStorage(self.tempdir)
         sequentialStorage.add(identifier='abc', data="1")
         self.assertRaises(KeyError, lambda: list(sequentialStorage.getMultiple(identifiers=['abc', 'def'], ignoreMissing=False)))
-        self.assertEquals([('abc', '1')], list(sequentialStorage.getMultiple(identifiers=['abc', 'def'], ignoreMissing=True)))
+        self.assertEqual([('abc', '1')], list(sequentialStorage.getMultiple(identifiers=['abc', 'def'], ignoreMissing=True)))
 
     def testKeyMonotonicallyIncreasingAfterReopening(self):
         sequentialStorage = SequentialStorage(self.tempdir)
@@ -115,9 +115,9 @@ class SequentialStorageTest(SeecrTestCase):
         sequentialStorageReloaded = SequentialStorage(self.tempdir)
         sequentialStorageReloaded.add(identifier='ghi', data="3")
 
-        self.assertEquals("1", sequentialStorageReloaded['abc'])
-        self.assertEquals("2", sequentialStorageReloaded['def'])
-        self.assertEquals("3", sequentialStorageReloaded['ghi'])
+        self.assertEqual("1", sequentialStorageReloaded['abc'])
+        self.assertEqual("2", sequentialStorageReloaded['def'])
+        self.assertEqual("3", sequentialStorageReloaded['ghi'])
 
     def testDelete(self):
         sequentialStorage = SequentialStorage(self.tempdir)
@@ -125,7 +125,7 @@ class SequentialStorageTest(SeecrTestCase):
         sequentialStorage.add(identifier='def', data="2")
         sequentialStorage.delete(identifier='abc')
         self.assertRaises(KeyError, lambda: sequentialStorage['abc'])
-        self.assertEquals('2', sequentialStorage['def'])
+        self.assertEqual('2', sequentialStorage['def'])
 
     def testDeleteAllowedForUnknownIdentifier(self):
         sequentialStorage = SequentialStorage(self.tempdir)
@@ -142,7 +142,7 @@ class SequentialStorageTest(SeecrTestCase):
 
         sequentialStorage = SequentialStorage(self.tempdir)
         self.assertRaises(KeyError, lambda: sequentialStorage['abc'])
-        self.assertEquals('2', sequentialStorage['def'])
+        self.assertEqual('2', sequentialStorage['def'])
 
     def testClose(self):
         sequentialStorage = SequentialStorage(self.tempdir)
@@ -151,35 +151,35 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertTrue(isfile(lockFile))
         sequentialStorage.close()
         stdout, stderr = Popen("lsof -n %s" % lockFile, stdout=PIPE, stderr=PIPE, shell=True).communicate()
-        self.assertEquals('', stdout.strip())
+        self.assertEqual('', stdout.strip())
         self.assertRaises(AttributeError, lambda: sequentialStorage.add('def', data='2'))
 
     def testGet(self):
         sequentialStorage = SequentialStorage(self.tempdir)
-        self.assertEquals(None, sequentialStorage.get('abc'))
-        self.assertEquals('x', sequentialStorage.get(identifier='abc', default='x'))
-        self.assertEquals('x', sequentialStorage.get('abc', 'x'))
+        self.assertEqual(None, sequentialStorage.get('abc'))
+        self.assertEqual('x', sequentialStorage.get(identifier='abc', default='x'))
+        self.assertEqual('x', sequentialStorage.get('abc', 'x'))
 
     def testVersionWritten(self):
         SequentialStorage(self.tempdir)
         version = open(join(self.tempdir, "sequentialstorage.version")).read()
-        self.assertEquals('5', version)
+        self.assertEqual('5', version)
 
     def testRefuseInitInNonEmptyDirWithNoVersionFile(self):
         open(join(self.tempdir, 'x'), 'w').close()
         try:
             SequentialStorage(self.tempdir)
             self.fail()
-        except AssertionError, e:
-            self.assertEquals("The %s directory is already in use for something other than a SequentialStorage." % self.tempdir, str(e))
+        except AssertionError as e:
+            self.assertEqual("The %s directory is already in use for something other than a SequentialStorage." % self.tempdir, str(e))
 
     def testRefuseInitWithDifferentVersionFile(self):
         open(join(self.tempdir, 'sequentialstorage.version'), 'w').write('different version')
         try:
             SequentialStorage(self.tempdir)
             self.fail()
-        except AssertionError, e:
-            self.assertEquals('The SequentialStorage at %s needs to be converted to the current version.' % self.tempdir, str(e))
+        except AssertionError as e:
+            self.assertEqual('The SequentialStorage at %s needs to be converted to the current version.' % self.tempdir, str(e))
 
     def testRefuseInitWithDirectoryPathThatExistsAsFile(self):
         filePath = join(self.tempdir, 'x')
@@ -187,55 +187,55 @@ class SequentialStorageTest(SeecrTestCase):
         try:
             SequentialStorage(filePath)
             self.fail()
-        except OSError, e:
-            self.assertEquals("[Errno 17] File exists: '%s'" % filePath, str(e))
+        except OSError as e:
+            self.assertEqual("[Errno 17] File exists: '%s'" % filePath, str(e))
 
     def testShouldNotAllowOpeningTwice(self):
         SequentialStorage(self.tempdir)
         try:
             SequentialStorage(self.tempdir)
             self.fail()
-        except Exception, e:
+        except Exception as e:
             self.assertTrue(repr(e).startswith('JavaError(<Throwable: org.apache.lucene.store.LockObtainFailedException: Lock held by this virtual machine: %s' % self.tempdir), e)
 
     def testIter(self):
         s = SequentialStorage(self.tempdir)
-        for i in xrange(1000, 0, -1):
+        for i in range(1000, 0, -1):
             s.add('identifier%s' % i, 'data%s' % i)
-        for i in xrange(0, 1001, 2):
+        for i in range(0, 1001, 2):
             s.delete('identifier%s' % i)
-        expected = ['identifier%s' % i for i in xrange(999, 0, -2)]
-        self.assertEquals(expected, list(iter(s)))
-        self.assertEquals(expected, list(s.iterkeys()))
-        expected = ['data%s' % i for i in xrange(999, 0, -2)]
-        self.assertEquals(expected, list(s.itervalues()))
-        expected = [('identifier%s' % i, 'data%s' % i) for i in xrange(999, 0, -2)]
-        self.assertEquals(expected, list(s.iteritems()))
+        expected = ['identifier%s' % i for i in range(999, 0, -2)]
+        self.assertEqual(expected, list(iter(s)))
+        self.assertEqual(expected, list(s.keys()))
+        expected = ['data%s' % i for i in range(999, 0, -2)]
+        self.assertEqual(expected, list(s.values()))
+        expected = [('identifier%s' % i, 'data%s' % i) for i in range(999, 0, -2)]
+        self.assertEqual(expected, list(s.items()))
 
     def testSignalConcurrentModification(self):
         s = SequentialStorage(self.tempdir)
-        for i in xrange(999999):
+        for i in range(999999):
             s.add('identifier%s' % i, 'data%s' % i)
         try:
-            for i in s.iterkeys():
+            for i in list(s.keys()):
                 s.delete('identifier%s' % i)
             self.fail('should have failed with ConcurrentModificationException')
-        except AssertionError, e:
+        except AssertionError as e:
             raise
-        except Exception, e:
-            self.assertEquals('java.util.ConcurrentModificationException: org.apache.lucene.store.AlreadyClosedException: this IndexReader is closed', str(e.getJavaException()))
+        except Exception as e:
+            self.assertEqual('java.util.ConcurrentModificationException: org.apache.lucene.store.AlreadyClosedException: this IndexReader is closed', str(e.getJavaException()))
 
     def testGcWithoutWait(self):
         directory = join(self.tempdir, 'store')
-        for x in xrange(3):
+        for x in range(3):
             try:
                 s = SequentialStorage(directory)
-                for i in xrange(99999):
+                for i in range(99999):
                     s.add('identifier%s' % i, 'data%s' % i)
                 s.commit()
                 size = s.getSizeOnDisk()
                 self.assertTrue(size > 1000, size)
-                for i in xrange(0, 99999, 3):  # delete some
+                for i in range(0, 99999, 3):  # delete some
                     s.delete('identifier%s' % i)
                 s.commit()
                 newSize = s.getSizeOnDisk()
@@ -258,15 +258,15 @@ class SequentialStorageTest(SeecrTestCase):
 
     def testGcWithWait(self):
         directory = join(self.tempdir, 'store')
-        for x in xrange(3):
+        for x in range(3):
             try:
                 s = SequentialStorage(directory)
-                for i in xrange(99999):
+                for i in range(99999):
                     s.add('identifier%s' % i, 'data%s' % i)
                 s.commit()
                 size = s.getSizeOnDisk()
                 self.assertTrue(size > 1000, size)
-                for i in xrange(0, 99999, 3):  # delete some
+                for i in range(0, 99999, 3):  # delete some
                     s.delete('identifier%s' % i)
                 s.commit()
                 newSize = s.getSizeOnDisk()

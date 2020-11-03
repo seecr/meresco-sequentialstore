@@ -38,9 +38,9 @@ class MultiSequentialStorageTest(SeecrTestCase):
         s.addData(identifier='2', name="rdf", data="<rdf/>")
         s.close()
         ss = SequentialStorage(join(self.tempdir, 'oai_dc'))
-        self.assertEquals('<data/>', ss['1'])
+        self.assertEqual('<data/>', ss['1'])
         ss = SequentialStorage(join(self.tempdir, 'rdf'))
-        self.assertEquals('<rdf/>', ss['2'])
+        self.assertEqual('<rdf/>', ss['2'])
 
     def testAddToExistingEmptyStore(self):
         s = MultiSequentialStorage(self.tempdir)
@@ -63,7 +63,7 @@ class MultiSequentialStorageTest(SeecrTestCase):
         s.addData('1', "oai_dc", "<data/>")
         s.close()
         sReopened = MultiSequentialStorage(self.tempdir)
-        self.assertEquals('<data/>', sReopened.getData('1', 'oai_dc'))
+        self.assertEqual('<data/>', sReopened.getData('1', 'oai_dc'))
 
     def testReadWriteIdentifier(self):
         s = MultiSequentialStorage(self.tempdir)
@@ -71,8 +71,8 @@ class MultiSequentialStorageTest(SeecrTestCase):
         s.addData('2', "oai_dc", "<data>2</data>")
         s.close()
         sReopened = MultiSequentialStorage(self.tempdir)
-        self.assertEquals('<data>1</data>', sReopened.getData(1, 'oai_dc'))
-        self.assertEquals('<data>2</data>', sReopened.getData(2, 'oai_dc'))
+        self.assertEqual('<data>1</data>', sReopened.getData(1, 'oai_dc'))
+        self.assertEqual('<data>2</data>', sReopened.getData(2, 'oai_dc'))
 
     def testMonotonicityNotRequiredOverDifferentParts(self):
         s = MultiSequentialStorage(self.tempdir)
@@ -86,39 +86,39 @@ class MultiSequentialStorageTest(SeecrTestCase):
         s.addData('id:3', "oai_dc", "<three/>")
         s.addData('id:4', "oai_dc", "<four/>")
         result = list(s.getMultipleData("oai_dc", ['id:2', 'id:3']))
-        self.assertEquals([('id:2', "<two/>"), ('id:3', "<three/>")], result)
+        self.assertEqual([('id:2', "<two/>"), ('id:3', "<three/>")], result)
 
     def testGetMultipleDataResultNotFound(self):
         s = MultiSequentialStorage(self.tempdir)
         try:
             list(s.getMultipleData("na", ['42']))
             self.fail()
-        except KeyError, e:
-            self.assertEquals("'na'", str(e))
+        except KeyError as e:
+            self.assertEqual("'na'", str(e))
         s.addData(identifier='1', name='na', data='ignored')
         try:
             list(s.getMultipleData("na", ['42']))
             self.fail()
-        except KeyError, e:
-            self.assertEquals("'42'", str(e))
+        except KeyError as e:
+            self.assertEqual("'42'", str(e))
 
     def testGetMultipleDataIgnoreMissingKeysWithFlag(self):
         s = MultiSequentialStorage(self.tempdir)
         result = list(s.getMultipleData(name='sub', identifiers=('1', '42'), ignoreMissing=True))
-        self.assertEquals([], result)
+        self.assertEqual([], result)
 
         s.addData(identifier='1', name="sub", data="d1")
         s.addData(identifier='2', name="sub", data="d2")
         s.addData(identifier='3', name="sub", data="d3")
         result = list(s.getMultipleData(name="sub", identifiers=('1', '42'), ignoreMissing=True))
-        self.assertEquals([('1', "d1")], result)
+        self.assertEqual([('1', "d1")], result)
 
     def testPartNameEscaping(self):
         s = MultiSequentialStorage(self.tempdir)
         s.addData(identifier='2', name="ma/am", data="data")
         s.close()
         s = MultiSequentialStorage(self.tempdir)
-        self.assertEquals("data", s.getData('2', "ma/am"))
+        self.assertEqual("data", s.getData('2', "ma/am"))
 
     def testDirectoryCreatedIfNotExists(self):
         MultiSequentialStorage(join(self.tempdir, "storage"))
@@ -130,7 +130,7 @@ class MultiSequentialStorageTest(SeecrTestCase):
         s.addData('2', "part2", "data2")
         s.deleteData('2', 'part1')
         self.assertRaises(KeyError, lambda: s.getData('2', 'part1'))
-        self.assertEquals('data2', s.getData('2', 'part2'))
+        self.assertEqual('data2', s.getData('2', 'part2'))
 
     def testDeleteDataForAllParts(self):
         s = MultiSequentialStorage(self.tempdir)
@@ -143,7 +143,7 @@ class MultiSequentialStorageTest(SeecrTestCase):
     def testCommit(self):
         s = MultiSequentialStorage(self.tempdir)
         s.addData('2', "part1", "data1")
-        self.assertEquals({'2': 'data1'}, s._storage['part1']._latestModifications)
+        self.assertEqual({'2': 'data1'}, s._storage['part1']._latestModifications)
         s.commit()
-        self.assertEquals({}, s._storage['part1']._latestModifications)
-        self.assertEquals('data1', s.getData('2', 'part1'))
+        self.assertEqual({}, s._storage['part1']._latestModifications)
+        self.assertEqual('data1', s.getData('2', 'part1'))

@@ -27,5 +27,5 @@ from random import randint
 
 
 def randomString(n):
-    return ''.join(chr(randint(0, 255)) for x in xrange(n))
+    return ''.join(chr(randint(0, 255)) for x in range(n))
 

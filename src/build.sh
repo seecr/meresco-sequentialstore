@@ -79,6 +79,7 @@ ${javac} -cp ${classpath} -d ${buildDir} org/meresco/sequentialstore/*.java
 
 ${PYTHON} -m jcc.__main__ \
     --root ${mydir}/root \
+    --include /usr/lib/python3/dist-packages/lucene/lucene-core-8.1.1.jar \
     --use_full_names \
     --import lucene \
     --shared \
@@ -86,7 +87,8 @@ ${PYTHON} -m jcc.__main__ \
     --jar ${buildDir}/meresco-sequentialstore.jar \
     --python meresco_sequentialstore \
     --build \
-    --install
+    --install \
+    org.apache.lucene.util.BytesRef
 
 rootLibDir=${mydir}/root/usr/lib64/python${pythonMajorVersion}/site-packages/meresco_sequentialstore
 if [ -f /etc/debian_version ]; then
@@ -95,4 +97,4 @@ fi
 
 mv ${rootLibDir} ${libDir}/
 
-rm -rf ${buildDir}  ${mydir}/root ${mydir}/meresco_sequentialstore.egg-info
+#rm -rf ${buildDir}  ${mydir}/root ${mydir}/meresco_sequentialstore.egg-info

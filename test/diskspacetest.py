@@ -50,42 +50,42 @@ class DiskSpaceTest(SeecrTestCase):
 
         c = SequentialStorage(storeDir)
 
-        print 'size???', getSimpleDirSize(storeDir)
+        print('size???', getSimpleDirSize(storeDir))
         sys.stdout.flush()
 
         with open(join(directory, 'diskspace.log'), 'w') as f:
-            for i in xrange(N):
+            for i in range(N):
                 identifier=makeId(i)
                 data=RECORD % i
                 c.add(identifier=identifier, data=data)
                 if i % 1000 == 0:
                     f.write("%s, %s\n" % (i, getSimpleDirSize(storeDir)))
-                    print i
+                    print(i)
                 sys.stdout.flush()
 
             c.commit()
-            print 'committed'
+            print('committed')
 
-            for j in xrange(M):
+            for j in range(M):
                 i = randint(1, N)
                 identifier=makeId(i)
                 data=RECORD % j
                 c.add(identifier=identifier, data=data)
                 if j % 1000 == 0:
                     f.write("%s, %s\n" % (i, getSimpleDirSize(storeDir)))
-                    print j, i
+                    print(j, i)
                     sleepWheel(1.0)
                 if j % 10000 == 0:
                     t = time()
                     c.commit()
-                    print 'commit took %s' % (time() - t)
+                    print('commit took %s' % (time() - t))
                 sys.stdout.flush()
 
             sleepWheel(2.0)
 
             t = time()
             c.close()
-            print 'close took %s' % (time() - t)
+            print('close took %s' % (time() - t))
             f.write("%s, %s\n" % (i, getSimpleDirSize(storeDir)))
 
 

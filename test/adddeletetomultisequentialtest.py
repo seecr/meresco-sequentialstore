@@ -46,7 +46,7 @@ class AddDeleteToMultiSequentialTest(SeecrTestCase):
 
     def testAdd(self):
         consume(self.top.all.add(identifier="x", partname="part", data="<data/>"))
-        self.assertEquals('<data/>', self.multiSequentialStorage.getData(identifier='x', name="part"))
+        self.assertEqual('<data/>', self.multiSequentialStorage.getData(identifier='x', name="part"))
 
     def testDelete(self):
         consume(self.top.all.add(identifier="x", partname="part", data="<data/>"))

@@ -46,25 +46,25 @@ class StorageComponentAdapterTest(SeecrTestCase):
 
     def testAdd(self):
         consume(self.top.all.add(identifier="x", partname="part", data="<data/>"))
-        self.assertEquals((True, True), self.top.call.isAvailable(identifier="x", partname="part"))
+        self.assertEqual((True, True), self.top.call.isAvailable(identifier="x", partname="part"))
 
     def testDelete(self):
         consume(self.top.all.add(identifier="x", partname="part", data="<data/>"))
         consume(self.top.all.delete(identifier="x"))
-        self.assertEquals((False, False), self.top.call.isAvailable(identifier="x", partname="part"))
+        self.assertEqual((False, False), self.top.call.isAvailable(identifier="x", partname="part"))
 
     def testDeletePart(self):
         consume(self.top.all.add(identifier="x", partname="part1", data="<data/>"))
         consume(self.top.all.add(identifier="x", partname="part2", data="<data/>"))
         self.top.call.deletePart(identifier="x", partname="part1")
-        self.assertEquals((False, False), self.top.call.isAvailable(identifier="x", partname="part1"))
-        self.assertEquals((True, True), self.top.call.isAvailable(identifier="x", partname="part2"))
+        self.assertEqual((False, False), self.top.call.isAvailable(identifier="x", partname="part1"))
+        self.assertEqual((True, True), self.top.call.isAvailable(identifier="x", partname="part2"))
 
     def testGetStream(self):
         consume(self.top.all.add(identifier="x", partname="part1", data="<data/>"))
-        self.assertEquals("<data/>", self.top.call.getStream(identifier="x", partname="part1").read())
+        self.assertEqual("<data/>", self.top.call.getStream(identifier="x", partname="part1").read())
 
     def testYieldRecord(self):
         consume(self.top.all.add(identifier="x", partname="part1", data="<data/>"))
-        self.assertEquals("<data/>", asString(self.top.all.yieldRecord(identifier="x", partname="part1")))
-        self.assertEquals("", asString(self.top.all.yieldRecord(identifier="y", partname="part1")))
+        self.assertEqual("<data/>", asString(self.top.all.yieldRecord(identifier="x", partname="part1")))
+        self.assertEqual("", asString(self.top.all.yieldRecord(identifier="y", partname="part1")))
