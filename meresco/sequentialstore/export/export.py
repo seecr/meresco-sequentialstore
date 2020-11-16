@@ -43,7 +43,7 @@ class Export(object):
         self._compress = compressobj()
         size = len(seqStorage)
         self._openFile.write('%s\n' % size)
-        for i, (identifier, data) in enumerate(seqStorage.items()):
+        for i, (identifier, data) in enumerate(seqStorage.iteritems()):
             if i % 1000 == 0:
                 print('exporting item %s (%s%%)' % (i, (i * 100 / size)))
                 sys.stdout.flush()
@@ -71,6 +71,7 @@ class Export(object):
             raise RuntimeError("Unexpectedly encountered \n character as part of the identifier '%s'." % identifier)
         if BOUNDARY_SENTINEL in identifier:
             raise RuntimeError("Internal boundary sentinel unexpectedly appears as part of the identifier '%s'." % identifier)
+        print(">>>>>>>>", identifier, type(data), flush=True)
         if BOUNDARY_SENTINEL in data:
             raise RuntimeError("Internal boundary sentinel unexpectedly appears as part of the record data for identifier '%s'." % identifier)
         self._openFile.write(self._compress.compress(identifier + '\n'))

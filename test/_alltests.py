@@ -39,6 +39,9 @@ sysPath.insert(0,'..')                            #DO_NOT_DISTRIBUTE
 import unittest
 from warnings import simplefilter
 simplefilter('default')
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning) 
+
 
 from adddeletetomultisequentialtest import AddDeleteToMultiSequentialTest
 from sequentialstoragetest import SequentialStorageTest

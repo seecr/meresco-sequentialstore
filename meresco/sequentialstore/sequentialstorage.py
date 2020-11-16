@@ -52,7 +52,7 @@ class SequentialStorage(object):
         if data is None:
             raise ValueError('data should not be None')
         identifier = str(identifier)
-        self._luceneStore.add(identifier, BytesRef(data.encode()))
+        self._luceneStore.add(identifier, BytesRef(data.encode('unicode_escape')))
         self._latestModifications[identifier] = data
         self._maybeCommit()
 
@@ -102,17 +102,17 @@ class SequentialStorage(object):
 
     def iterkeys(self):
         self.commit()
-        return iter(self._luceneStore.keys())
+        return self._luceneStore.iterkeys()
 
     __iter__ = iterkeys
 
     def iteritems(self):
         self.commit()
-        return ((item.identifier, standard_b64decode(item.data)) for item in self._luceneStore.items())
+        return ((item.identifier, standard_b64decode(item.data).decode()) for item in self._luceneStore.iteritems())
 
     def itervalues(self):
         self.commit()
-        return (standard_b64decode(data) for data in self._luceneStore.values())
+        return (standard_b64decode(data).decode() for data in self._luceneStore.itervalues())
 
     def commit(self):
         self._luceneStore.commit()
@@ -149,7 +149,7 @@ class SequentialStorage(object):
 
     def _getData(self, identifier):
         b64encodedData = self._luceneStore.getData(identifier)
-        return standard_b64decode(b64encodedData) if not b64encodedData is None else None
+        return standard_b64decode(b64encodedData).decode('unicode-escape') if not b64encodedData is None else None
 
     def _maybeCommit(self):
         if len(self._latestModifications) > self._maxModifications:
@@ -163,7 +163,8 @@ class SequentialStorage(object):
         versionFile = join(self._directory, "sequentialstorage.version")
         if isdir(self._directory):
             if isfile(versionFile):
-                assert open(versionFile).read() == self.version, "The SequentialStorage at %s needs to be converted to the current version." % self._directory
+                with open(versionFile) as fp:
+                    assert fp.read() == self.version, "The SequentialStorage at %s needs to be converted to the current version." % self._directory
             else:
                 assert (listdir(self._directory) == []), "The %s directory is already in use for something other than a SequentialStorage." % self._directory
         else:

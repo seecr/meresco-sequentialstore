@@ -59,7 +59,7 @@ class SequentialStorageTest(SeecrTestCase):
         self.assertEqual("1", sequentialStorageReloaded['abc'])
         self.assertEqual("2", sequentialStorageReloaded['def'])
         self.assertEqual(2, len(sequentialStorageReloaded))
-        self.assertEqual(["abc", "def"], list(sequentialStorageReloaded.keys()))
+        self.assertEqual(["abc", "def"], list(sequentialStorageReloaded.iterkeys()))
 
     def testLenTakesDeletesIntoAccount(self):
         sequentialStorage = SequentialStorage(self.tempdir)
@@ -150,8 +150,9 @@ class SequentialStorageTest(SeecrTestCase):
         lockFile = join(self.tempdir, 'write.lock')
         self.assertTrue(isfile(lockFile))
         sequentialStorage.close()
-        stdout, stderr = Popen("lsof -n %s" % lockFile, stdout=PIPE, stderr=PIPE, shell=True).communicate()
-        self.assertEqual('', stdout.strip())
+        with Popen("lsof -n %s" % lockFile, stdout=PIPE, stderr=PIPE, shell=True) as p:
+            stdout, stderr = p.communicate()
+        self.assertEqual(b'', stdout.strip())
         self.assertRaises(AttributeError, lambda: sequentialStorage.add('def', data='2'))
 
     def testGet(self):
@@ -206,18 +207,18 @@ class SequentialStorageTest(SeecrTestCase):
             s.delete('identifier%s' % i)
         expected = ['identifier%s' % i for i in range(999, 0, -2)]
         self.assertEqual(expected, list(iter(s)))
-        self.assertEqual(expected, list(s.keys()))
+        self.assertEqual(expected, list(s.iterkeys()))
         expected = ['data%s' % i for i in range(999, 0, -2)]
-        self.assertEqual(expected, list(s.values()))
+        self.assertEqual(expected, list(s.itervalues()))
         expected = [('identifier%s' % i, 'data%s' % i) for i in range(999, 0, -2)]
-        self.assertEqual(expected, list(s.items()))
+        self.assertEqual(expected, list(s.iteritems()))
 
     def testSignalConcurrentModification(self):
         s = SequentialStorage(self.tempdir)
         for i in range(999999):
             s.add('identifier%s' % i, 'data%s' % i)
         try:
-            for i in list(s.keys()):
+            for i in list(s.iterkeys()):
                 s.delete('identifier%s' % i)
             self.fail('should have failed with ConcurrentModificationException')
         except AssertionError as e:
