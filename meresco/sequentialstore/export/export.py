@@ -37,12 +37,17 @@ class Export(object):
         self._openFile = None
         self._compress = None
 
+    def close(self):
+        if not self._openFile is None:
+            self._openFile.close()
+            self._openFile = None
+
     def export(self, seqStorage):
-        self._openFile = open(self._path, 'w')
-        self._openFile.write(self.VERSION_LINE)
+        self._openFile = open(self._path, 'wb')
+        self._openFile.write(self.VERSION_LINE.encode())
         self._compress = compressobj()
         size = len(seqStorage)
-        self._openFile.write('%s\n' % size)
+        self._openFile.write(('%s\n' % size).encode())
         for i, (identifier, data) in enumerate(seqStorage.iteritems()):
             if i % 1000 == 0:
                 print('exporting item %s (%s%%)' % (i, (i * 100 / size)))
@@ -50,12 +55,11 @@ class Export(object):
             self._writeItem(identifier, data)
         self._openFile.write(self._compress.flush())
         self._compress = None
-        self._openFile.close()
-        self._openFile = None
+        self.close()
 
     def importInto(self, seqStorage):
-        self._openFile = open(self._path, 'r')
-        versionLine = self._openFile.readline()
+        self._openFile = open(self._path, 'rb')
+        versionLine = self._openFile.readline().decode()
         assert self.VERSION_LINE == versionLine, "The SequentialStore export file does not match the expected version %s (%s)." % (self.version, repr(versionLine[:len(self.VERSION_LINE)]))
         size = int(self._openFile.readline())
         for i, (identifier, data) in enumerate(self._iteritems()):
@@ -63,30 +67,30 @@ class Export(object):
                 print('importing item %s (%s%%)' % (i, (i * 100 / size)))
                 sys.stdout.flush()
             seqStorage.add(identifier, data)
-        self._openFile.close()
-        self._openFile = None
+        self.close()
 
     def _writeItem(self, identifier, data):
         if '\n' in identifier:
             raise RuntimeError("Unexpectedly encountered \n character as part of the identifier '%s'." % identifier)
-        if BOUNDARY_SENTINEL in identifier:
+        bIdentifier = identifier.encode()
+        if BOUNDARY_SENTINEL in bIdentifier:
             raise RuntimeError("Internal boundary sentinel unexpectedly appears as part of the identifier '%s'." % identifier)
-        print(">>>>>>>>", identifier, type(data), flush=True)
-        if BOUNDARY_SENTINEL in data:
+        bData = data.encode()
+        if BOUNDARY_SENTINEL in bData:
             raise RuntimeError("Internal boundary sentinel unexpectedly appears as part of the record data for identifier '%s'." % identifier)
-        self._openFile.write(self._compress.compress(identifier + '\n'))
-        self._openFile.write(self._compress.compress(data))
+        self._openFile.write(self._compress.compress(bIdentifier + b'\n'))
+        self._openFile.write(self._compress.compress(bData))
         self._openFile.write(self._compress.compress(BOUNDARY_SENTINEL))
 
     def _iteritems(self):
-        data = ''
+        data = b''
         for s in self._decompress():
             data += s
             while True:
                 record, sep, rest = data.partition(BOUNDARY_SENTINEL)
                 if not sep:
                     break
-                yield record.split('\n', 1)
+                yield map(lambda x:x.decode(), record.split(b'\n', 1))
                 data = rest
 
     def _decompress(self):
@@ -96,4 +100,4 @@ class Export(object):
         yield decompress.flush()
 
 
-BOUNDARY_SENTINEL = '\n=>> [{]} SequentialStore export record boundary {[}] <<=\n'  # Note: clearly this exact string must NEVER appear inside actual record data...
+BOUNDARY_SENTINEL = b'\n=>> [{]} SequentialStore export record boundary {[}] <<=\n'  # Note: clearly this exact string must NEVER appear inside actual record data...

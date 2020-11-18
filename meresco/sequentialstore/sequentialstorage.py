@@ -108,11 +108,11 @@ class SequentialStorage(object):
 
     def iteritems(self):
         self.commit()
-        return ((item.identifier, standard_b64decode(item.data).decode()) for item in self._luceneStore.iteritems())
+        return ((item.identifier, standard_b64decode(item.data).decode('unicode_escape')) for item in self._luceneStore.iteritems())
 
     def itervalues(self):
         self.commit()
-        return (standard_b64decode(data).decode() for data in self._luceneStore.itervalues())
+        return (standard_b64decode(data).decode('unicode_escape') for data in self._luceneStore.itervalues())
 
     def commit(self):
         self._luceneStore.commit()

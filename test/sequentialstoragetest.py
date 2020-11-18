@@ -163,11 +163,13 @@ class SequentialStorageTest(SeecrTestCase):
 
     def testVersionWritten(self):
         SequentialStorage(self.tempdir)
-        version = open(join(self.tempdir, "sequentialstorage.version")).read()
+        with open(join(self.tempdir, "sequentialstorage.version")) as fp:
+            version = fp.read()
         self.assertEqual('5', version)
 
     def testRefuseInitInNonEmptyDirWithNoVersionFile(self):
-        open(join(self.tempdir, 'x'), 'w').close()
+        with open(join(self.tempdir, 'x'), 'w') as fp:
+            pass
         try:
             SequentialStorage(self.tempdir)
             self.fail()
@@ -175,7 +177,8 @@ class SequentialStorageTest(SeecrTestCase):
             self.assertEqual("The %s directory is already in use for something other than a SequentialStorage." % self.tempdir, str(e))
 
     def testRefuseInitWithDifferentVersionFile(self):
-        open(join(self.tempdir, 'sequentialstorage.version'), 'w').write('different version')
+        with open(join(self.tempdir, 'sequentialstorage.version'), 'w') as fp:
+            fp.write('different version')
         try:
             SequentialStorage(self.tempdir)
             self.fail()
@@ -184,7 +187,8 @@ class SequentialStorageTest(SeecrTestCase):
 
     def testRefuseInitWithDirectoryPathThatExistsAsFile(self):
         filePath = join(self.tempdir, 'x')
-        open(filePath, 'w').close()
+        with open(filePath, 'w') as fp:
+            pass
         try:
             SequentialStorage(filePath)
             self.fail()
