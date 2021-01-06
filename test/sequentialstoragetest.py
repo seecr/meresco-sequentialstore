@@ -222,7 +222,7 @@ class SequentialStorageTest(SeecrTestCase):
         for i in range(999999):
             s.add('identifier%s' % i, 'data%s' % i)
         try:
-            for i in list(s.iterkeys()):
+            for i in s.iterkeys():
                 s.delete('identifier%s' % i)
             self.fail('should have failed with ConcurrentModificationException')
         except AssertionError as e:
