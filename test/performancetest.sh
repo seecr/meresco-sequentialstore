@@ -29,4 +29,4 @@ export LANG=en_US.UTF-8
 export PYTHONPATH=.:"$PYTHONPATH"
 export WEIGHTLESS_COMPOSE_TEST="PYTHON"
 
-PYLUCENE_MAXHEAP=512m python _performancetest.py "$@"
+PYLUCENE_MAXHEAP=512m python3 _performancetest.py "$@"

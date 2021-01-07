@@ -92,7 +92,7 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
             clearCaches()
             c = SequentialStorage(directory)
             t0 = time()
-            for i, identifier in enumerate(c.keys()):
+            for i, identifier in enumerate(c.iterkeys()):
                 if i % 1000 == 0:
                     print(i, i/(time() - t0))
             print("iterkeys", (time() - t0) / i)
@@ -103,7 +103,7 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
             clearCaches()
             c = SequentialStorage(directory)
             t0 = time()
-            for i, item in enumerate(c.items()):
+            for i, item in enumerate(c.iteritems()):
                 if i % 1000 == 0:
                     print(i, i/(time() - t0))
             print("iteritems", (time() - t0) / i)
