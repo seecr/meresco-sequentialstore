@@ -41,8 +41,8 @@ if [ -f /etc/debian_version ]; then
 fi
 
 JCC_VERSION=$(${PYTHON} -c "from jcc.config import VERSION; print(VERSION)")
-if [ "${JCC_VERSION}" != "3.6" ]; then
-    echo "JCC 3.6 is required."
+if [ "${JCC_VERSION}" != "3.8" ]; then
+    echo "JCC 3.8 is required. ${JCC_VERSION} found."
     exit 1
 fi
 
@@ -68,7 +68,7 @@ if [ ! -d "${luceneJarDir}" ] ; then
     exit 1
 fi
 
-LUCENE_VERSION=8.1.1
+LUCENE_VERSION=8.6.1
 classpath=${luceneJarDir}/lucene-core-${LUCENE_VERSION}.jar:${luceneJarDir}/lucene-analyzers-common-${LUCENE_VERSION}.jar:${luceneJarDir}/lucene-facet-${LUCENE_VERSION}.jar:${luceneJarDir}/lucene-queries-${LUCENE_VERSION}.jar:${luceneJarDir}/lucene-misc-${LUCENE_VERSION}.jar
 
 rm -rf ${buildDir} ${libDir}
@@ -79,7 +79,6 @@ ${javac} -cp ${classpath} -d ${buildDir} org/meresco/sequentialstore/*.java
 
 ${PYTHON} -m jcc.__main__ \
     --root ${mydir}/root \
-    --include /usr/lib/python3/dist-packages/lucene/lucene-core-8.1.1.jar \
     --use_full_names \
     --import lucene \
     --shared \
