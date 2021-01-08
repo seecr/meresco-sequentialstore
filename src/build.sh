@@ -87,7 +87,6 @@ ${PYTHON} -m jcc.__main__ \
     --python meresco_sequentialstore \
     --build \
     --install \
-    org.apache.lucene.util.BytesRef
 
 rootLibDir=${mydir}/root/usr/lib64/python${pythonMajorVersion}/site-packages/meresco_sequentialstore
 if [ -f /etc/debian_version ]; then
