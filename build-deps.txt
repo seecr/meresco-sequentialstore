@@ -1,6 +1,7 @@
-jcc (>= 3.6)
-jcc (<< 3.7)
-python-setuptools
+jcc (>= 3.8)
+jcc (<< 3.9)
+python3-setuptools
+seecr-tools (>= 1.0.3.1)
 gcc
 pylucene (>= 8.1.1)
 pylucene (<< 8.2.0)
