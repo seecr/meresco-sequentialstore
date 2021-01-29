@@ -36,7 +36,7 @@ javaSources = glob(join(srcDir, 'org','meresco','sequentialstore', '*.java'))   
 if javaSources:                                                                  #DO_NOT_DISTRIBUTE
     lastMtime = max(stat(f).st_mtime for f in javaSources)                       #DO_NOT_DISTRIBUTE
     if not isfile(sofile) or stat(sofile).st_mtime < lastMtime:                  #DO_NOT_DISTRIBUTE
-        result = system('cd %s; ./build.sh' % srcDir)                            #DO_NOT_DISTRIBUTE
+        result = system('cd %s; ./build.sh %s' % (srcDir, libDir))               #DO_NOT_DISTRIBUTE
         if result:                                                               #DO_NOT_DISTRIBUTE
             exit(result)                                                         #DO_NOT_DISTRIBUTE
 sysPath.insert(0, libDir)                                                        #DO_NOT_DISTRIBUTE
