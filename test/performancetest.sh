@@ -3,9 +3,12 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014-2015, 2017 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2015, 2017, 2020-2021 Seecr (Seek You Too B.V.) https://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
-# Copyright (C) 2015 Stichting Kennisnet http://www.kennisnet.nl
+# Copyright (C) 2015, 2020-2021 Stichting Kennisnet https://www.kennisnet.nl
+# Copyright (C) 2020-2021 Data Archiving and Network Services https://dans.knaw.nl
+# Copyright (C) 2020-2021 SURF https://www.surf.nl
+# Copyright (C) 2020-2021 The Netherlands Institute for Sound and Vision https://beeldengeluid.nl
 #
 # This file is part of "Meresco SequentialStore"
 #
