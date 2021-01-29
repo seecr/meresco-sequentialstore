@@ -24,24 +24,22 @@
 #
 ## end license ##
 
-set -o errexit
-rm -rf tmp build
-mydir=$(cd $(dirname $0); pwd)
-
 source /usr/share/seecr-tools/functions.d/test
 
-pyversion="2.7"
-VERSION="x.y.z"
+set -e
+mydir=$(cd $(dirname $0); pwd)
+rm -rf tmp build
 
-definePythonVars ${pyversion}
-(cd $mydir/src; ./build.sh ${SITEPACKAGES}/meresco/sequentialstore)
+definePythonVars
+(cd $mydir/src; ./build.sh ${SITEPACKAGES})
 ${PYTHON} setup.py install --root tmp
-cp -r test tmp/test
 removeDoNotDistribute tmp
-find tmp -name '*.py' -exec sed -r -e "
+cp -r test tmp/test
+find tmp -type f -exec sed -e "
     s,^binDir.*$,binDir='${SEECRTEST_USR_BIN}',;
-    s/\\\$Version:[^\\\$]*\\\$/\\\$Version: ${VERSION}\\\$/;
-    " -i '{}' \;
+    s,^usrSharePath.*$,usrSharePath='$mydir/tmp/usr/share/meresco-components',;
+    " -i {} \;
 
 runtests "$@"
+
 rm -rf tmp build
