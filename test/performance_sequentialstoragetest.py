@@ -46,7 +46,7 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
         self.assertEqual(168, len(H))
 
         for i in range(N):
-            c.add(identifier="http://nederland.nl/%s" % i, data=H % i)
+            c.add(identifier="http://nederland.nl/%s" % i, data=(H % i).encode())
 
         def f():
             t0 = time()
@@ -79,7 +79,7 @@ class PerformanceSequentialStorageTest(SeecrTestCase):
                 identifier="http://nederland.nl/%s" % i
                 data=H % i
                 t0 = time()
-                c.add(identifier=identifier, data=data)
+                c.add(identifier=identifier, data=data.encode())
                 T += (time() - t0)
                 if i % 1000 == 0:
                     print(i, i / T)

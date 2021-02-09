@@ -37,8 +37,6 @@ includeParentAndDeps(__file__)                   #DO_NOT_DISTRIBUTE
 import unittest
 from warnings import simplefilter, filterwarnings
 simplefilter('default')
-#import warnings
-#warnings.filterwarnings("ignore", category=DeprecationWarning)
 filterwarnings('ignore', message=r".*has no __module__ attribute.*", category=DeprecationWarning)
 
 

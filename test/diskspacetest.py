@@ -61,7 +61,7 @@ class DiskSpaceTest(SeecrTestCase):
             for i in range(N):
                 identifier=makeId(i)
                 data=RECORD % i
-                c.add(identifier=identifier, data=data)
+                c.add(identifier=identifier, data=data.encode())
                 if i % 1000 == 0:
                     f.write("%s, %s\n" % (i, getSimpleDirSize(storeDir)))
                     print(i)
@@ -74,7 +74,7 @@ class DiskSpaceTest(SeecrTestCase):
                 i = randint(1, N)
                 identifier=makeId(i)
                 data=RECORD % j
-                c.add(identifier=identifier, data=data)
+                c.add(identifier=identifier, data=data.encode())
                 if j % 1000 == 0:
                     f.write("%s, %s\n" % (i, getSimpleDirSize(storeDir)))
                     print(j, i)
