@@ -79,14 +79,15 @@ class Export(object):
         bIdentifier = identifier.encode()
         if BOUNDARY_SENTINEL in bIdentifier:
             raise RuntimeError("Internal boundary sentinel unexpectedly appears as part of the identifier '%s'." % identifier)
-        bData = data.encode()
-        if BOUNDARY_SENTINEL in bData:
+        if BOUNDARY_SENTINEL in data:
             raise RuntimeError("Internal boundary sentinel unexpectedly appears as part of the record data for identifier '%s'." % identifier)
         self._openFile.write(self._compress.compress(bIdentifier + b'\n'))
-        self._openFile.write(self._compress.compress(bData))
+        self._openFile.write(self._compress.compress(data))
         self._openFile.write(self._compress.compress(BOUNDARY_SENTINEL))
 
     def _iteritems(self):
+        def fixRecord(identifier, data):
+            return identifier.decode(), data
         data = b''
         for s in self._decompress():
             data += s
@@ -94,7 +95,7 @@ class Export(object):
                 record, sep, rest = data.partition(BOUNDARY_SENTINEL)
                 if not sep:
                     break
-                yield map(lambda x:x.decode(), record.split(b'\n', 1))
+                yield fixRecord(*record.split(b'\n', 1))
                 data = rest
 
     def _decompress(self):

@@ -29,7 +29,8 @@
 
 from seecr.test import SeecrTestCase
 
-from weightless.core import be, consume, asString
+from weightless.core import be, consume
+from weightless.core.utils import asBytes
 from meresco.core import Observable
 
 from meresco.sequentialstore import StorageComponentAdapter, MultiSequentialStorage
@@ -49,26 +50,26 @@ class StorageComponentAdapterTest(SeecrTestCase):
         )
 
     def testAdd(self):
-        consume(self.top.all.add(identifier="x", partname="part", data="<data/>"))
+        consume(self.top.all.add(identifier="x", partname="part", data=b"<data/>"))
         self.assertEqual((True, True), self.top.call.isAvailable(identifier="x", partname="part"))
 
     def testDelete(self):
-        consume(self.top.all.add(identifier="x", partname="part", data="<data/>"))
+        consume(self.top.all.add(identifier="x", partname="part", data=b"<data/>"))
         consume(self.top.all.delete(identifier="x"))
         self.assertEqual((False, False), self.top.call.isAvailable(identifier="x", partname="part"))
 
     def testDeletePart(self):
-        consume(self.top.all.add(identifier="x", partname="part1", data="<data/>"))
-        consume(self.top.all.add(identifier="x", partname="part2", data="<data/>"))
+        consume(self.top.all.add(identifier="x", partname="part1", data=b"<data/>"))
+        consume(self.top.all.add(identifier="x", partname="part2", data=b"<data/>"))
         self.top.call.deletePart(identifier="x", partname="part1")
         self.assertEqual((False, False), self.top.call.isAvailable(identifier="x", partname="part1"))
         self.assertEqual((True, True), self.top.call.isAvailable(identifier="x", partname="part2"))
 
     def testGetStream(self):
-        consume(self.top.all.add(identifier="x", partname="part1", data="<data/>"))
-        self.assertEqual("<data/>", self.top.call.getStream(identifier="x", partname="part1").read())
+        consume(self.top.all.add(identifier="x", partname="part1", data=b"<data/>"))
+        self.assertEqual(b"<data/>", self.top.call.getStream(identifier="x", partname="part1").read())
 
     def testYieldRecord(self):
-        consume(self.top.all.add(identifier="x", partname="part1", data="<data/>"))
-        self.assertEqual("<data/>", asString(self.top.all.yieldRecord(identifier="x", partname="part1")))
-        self.assertEqual("", asString(self.top.all.yieldRecord(identifier="y", partname="part1")))
+        consume(self.top.all.add(identifier="x", partname="part1", data=b"<data/>"))
+        self.assertEqual(b"<data/>", asBytes(self.top.all.yieldRecord(identifier="x", partname="part1")))
+        self.assertEqual(b"", asBytes(self.top.all.yieldRecord(identifier="y", partname="part1")))

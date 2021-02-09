@@ -28,7 +28,7 @@
 ## end license ##
 
 
-from io import StringIO
+from io import BytesIO
 
 from .adddeletetomultisequential import AddDeleteToMultiSequential
 
@@ -47,7 +47,7 @@ class StorageComponentAdapter(AddDeleteToMultiSequential):
             return False, False
 
     def getStream(self, identifier, partname):
-        return StringIO(self.call.getData(identifier=identifier, name=partname))
+        return BytesIO(self.call.getData(identifier=identifier, name=partname))
 
     def yieldRecord(self, identifier, partname):
         try:

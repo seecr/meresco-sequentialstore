@@ -31,20 +31,15 @@
 from os import getuid
 assert getuid() != 0, "Do not run tests as 'root'"
 
-from os import system                             #DO_NOT_DISTRIBUTE
-from sys import path as sysPath                   #DO_NOT_DISTRIBUTE
-system('find .. -name "*.pyc" | xargs rm -f')     #DO_NOT_DISTRIBUTE
-                                                  #DO_NOT_DISTRIBUTE
-from glob import glob                             #DO_NOT_DISTRIBUTE
-for path in glob('../deps.d/*'):                  #DO_NOT_DISTRIBUTE
-    sysPath.insert(0, path)                       #DO_NOT_DISTRIBUTE
-sysPath.insert(0,'..')                            #DO_NOT_DISTRIBUTE
+from seecrdeps import includeParentAndDeps       #DO_NOT_DISTRIBUTE
+includeParentAndDeps(__file__)                   #DO_NOT_DISTRIBUTE
 
 import unittest
-from warnings import simplefilter
+from warnings import simplefilter, filterwarnings
 simplefilter('default')
-import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning) 
+#import warnings
+#warnings.filterwarnings("ignore", category=DeprecationWarning)
+filterwarnings('ignore', message=r".*has no __module__ attribute.*", category=DeprecationWarning)
 
 
 from adddeletetomultisequentialtest import AddDeleteToMultiSequentialTest

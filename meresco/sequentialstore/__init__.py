@@ -27,23 +27,18 @@
 #
 ## end license ##
 
-from os.path import dirname, abspath, join, isfile                               #DO_NOT_DISTRIBUTE
-from os import stat, system                                                      #DO_NOT_DISTRIBUTE
-from glob import glob                                                            #DO_NOT_DISTRIBUTE
-from sys import exit, path as sysPath                                            #DO_NOT_DISTRIBUTE
-mydir = dirname(abspath(__file__))                                               #DO_NOT_DISTRIBUTE
-srcDir = join(dirname(dirname(mydir)), 'src')                                    #DO_NOT_DISTRIBUTE
-libDir = join(dirname(dirname(mydir)), 'lib')                                    #DO_NOT_DISTRIBUTE
-sofilename = "_meresco_sequentialstore.cpython-37m-x86_64-linux-gnu.so"          #DO_NOT_DISTRIBUTE
-sofile = join(libDir, 'meresco_sequentialstore', sofilename)                     #DO_NOT_DISTRIBUTE
-javaSources = glob(join(srcDir, 'org','meresco','sequentialstore', '*.java'))    #DO_NOT_DISTRIBUTE
-if javaSources:                                                                  #DO_NOT_DISTRIBUTE
-    lastMtime = max(stat(f).st_mtime for f in javaSources)                       #DO_NOT_DISTRIBUTE
-    if not isfile(sofile) or stat(sofile).st_mtime < lastMtime:                  #DO_NOT_DISTRIBUTE
-        result = system('cd %s; ./build.sh %s' % (srcDir, libDir))               #DO_NOT_DISTRIBUTE
-        if result:                                                               #DO_NOT_DISTRIBUTE
-            exit(result)                                                         #DO_NOT_DISTRIBUTE
-sysPath.insert(0, libDir)                                                        #DO_NOT_DISTRIBUTE
+from seecr.tools.build import buildIfNeeded                                     #DO_NOT_DISTRIBUTE
+from os.path import join, dirname, abspath                                      #DO_NOT_DISTRIBUTE
+try:                                                                            #DO_NOT_DISTRIBUTE
+    buildIfNeeded(                                                              #DO_NOT_DISTRIBUTE
+        soFilename=join(                                                        #DO_NOT_DISTRIBUTE
+            "meresco_sequentialstore",                                          #DO_NOT_DISTRIBUTE
+            "_meresco_sequentialstore.*.so"),                                   #DO_NOT_DISTRIBUTE
+        buildCommand="cd {srcDir}; ./build.sh",                                 #DO_NOT_DISTRIBUTE
+        findRootFor=abspath(__file__))                                          #DO_NOT_DISTRIBUTE
+except RuntimeError as e:                                                       #DO_NOT_DISTRIBUTE
+    print("Building failed!\n{}\n".format(str(e)))                              #DO_NOT_DISTRIBUTE
+    exit(1)                                                                     #DO_NOT_DISTRIBUTE
 
 from .__version__ import VERSION
 from .adddeletetomultisequential import AddDeleteToMultiSequential

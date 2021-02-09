@@ -183,7 +183,7 @@ public class StoreLucene {
         this.writer.deleteDocuments(new Term(_IDENTIFIER_FIELD, identifier));
     }
 
-    public String getData(String identifier) throws IOException {
+    public BytesRef getData(String identifier) throws IOException {
         TopDocs results = searcher.search(new TermQuery(new Term(_IDENTIFIER_FIELD, identifier)), 1);
         if (results.totalHits.value == 0) {
             return null;
@@ -222,12 +222,12 @@ public class StoreLucene {
         };
     }
 
-    public PyIterator<String> itervalues() throws IOException {
+    public PyIterator<BytesRef> itervalues() throws IOException {
         // Requires reopen to be called first.
         PyIterator<Item> items = iteritems(false, true);
-        return new PyIterator<String>() {
+        return new PyIterator<BytesRef>() {
             @Override
-            public String next() {
+            public BytesRef next() {
                 Item item = items.next();
                 return item != null ? item.data : null;
             }
@@ -249,7 +249,7 @@ public class StoreLucene {
             @Override
             public Item next() {
                 String identifier = null;
-                String data = null;
+                BytesRef data = null;
                 while (identifier == null && data == null) {
                     if (docId >= maxDoc) {
                         return null;
@@ -281,13 +281,16 @@ public class StoreLucene {
         };
     }
 
-    private String _getData(int docId) throws IOException {
+    private BytesRef _getData(int docId) throws IOException {
         BytesRef bytesRef = this.searcher.doc(docId).getField(_DATA_FIELD).binaryValue();
+        return bytesRef;
+/*
         byte[] bytes = bytesRef.bytes;
         if (bytesRef.offset > 0 || bytesRef.length != bytes.length) {
             bytes = Arrays.copyOfRange(bytesRef.bytes, bytesRef.offset, bytesRef.offset + bytesRef.length);
         }
-        return Base64.getEncoder().encodeToString(bytes);
+        return bytes;
+        */
     }
 
     public interface PyIterator<T> {
@@ -296,9 +299,9 @@ public class StoreLucene {
 
     public class Item {
         public String identifier;
-        public String data;
+        public BytesRef data;
 
-        Item(String identifier, String data) {
+        Item(String identifier, BytesRef data) {
             this.identifier = identifier;
             this.data = data;
         }

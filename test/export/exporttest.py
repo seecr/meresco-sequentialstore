@@ -41,7 +41,7 @@ class ExportTest(SeecrTestCase):
             N = 1023
             s = SequentialStorage(join(self.tempdir, 'store'))
             for i in range(N):
-                s.add("identifier%s" % i, ''.join(chr(j % 255) for j in range(i)))
+                s.add("identifier%s" % i, bytes((j % 255) for j in range(i)))
             Export(join(self.tempdir, 'export')).export(s)
             self.assertTrue(isfile(join(self.tempdir, 'export')))
 
@@ -54,14 +54,14 @@ class ExportTest(SeecrTestCase):
                 self.assertEqual('identifier%s' % i, identifier)
             self.assertEqual(N-1, i)
             for i in range(N):
-                self.assertEqual(''.join(chr(j % 255) for j in range(i)), s.get('identifier%s' % i))
+                self.assertEqual(bytes((j % 255) for j in range(i)), s.get('identifier%s' % i))
 
     def testSequentialStoreExportAndImport(self):
         with stdout_replaced():
             N = 19
             s = SequentialStorage(join(self.tempdir, 'store'))
             for i in range(N):
-                s.add("identifier%s" % i, ''.join(chr(j % 255) for j in range(i)))
+                s.add("identifier%s" % i, bytes((j % 255) for j in range(i)))
             s.export(join(self.tempdir, 'export'))
             self.assertTrue(isfile(join(self.tempdir, 'export')))
 
@@ -74,7 +74,7 @@ class ExportTest(SeecrTestCase):
                 self.assertEqual('identifier%s' % i, identifier)
             self.assertEqual(N-1, i)
             for i in range(N):
-                self.assertEqual(''.join(chr(j % 255) for j in range(i)), s.get('identifier%s' % i))
+                self.assertEqual(bytes((j % 255) for j in range(i)), s.get('identifier%s' % i))
 
     def testImportFromExportMustMatchVersion(self):
         with open(join(self.tempdir, 'export'), 'wb') as f:

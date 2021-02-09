@@ -31,7 +31,6 @@
 from os import getenv, makedirs, listdir
 from os.path import join, isdir, isfile, getsize
 from warnings import warn
-from base64 import standard_b64decode
 
 from .export import Export
 
@@ -54,8 +53,10 @@ class SequentialStorage(object):
             raise ValueError('identifier should not be None')
         if data is None:
             raise ValueError('data should not be None')
+        if not isinstance(data, bytes):
+            raise TypeError('data should be bytes')
         identifier = str(identifier)
-        self._luceneStore.add(identifier, BytesRef(data.encode('unicode_escape')))
+        self._luceneStore.add(identifier, BytesRef(JArray('byte')(data)))
         self._latestModifications[identifier] = data
         self._maybeCommit()
 
@@ -111,11 +112,10 @@ class SequentialStorage(object):
 
     def iteritems(self):
         self.commit()
-        return ((item.identifier, standard_b64decode(item.data).decode('unicode_escape')) for item in self._luceneStore.iteritems())
+        return ((item.identifier, _toBytes(item.data)) for item in self._luceneStore.iteritems())
 
     def itervalues(self):
-        self.commit()
-        return (standard_b64decode(data).decode('unicode_escape') for data in self._luceneStore.itervalues())
+        return (_toBytes(item.data) for item in self._luceneStore.iteritems())
 
     def commit(self):
         self._luceneStore.commit()
@@ -151,8 +151,8 @@ class SequentialStorage(object):
         return sum(getsize(join(path, f)) for f in listdir(path) if isfile(join(path, f)))
 
     def _getData(self, identifier):
-        b64encodedData = self._luceneStore.getData(identifier)
-        return standard_b64decode(b64encodedData).decode('unicode-escape') if not b64encodedData is None else None
+        byteArray = self._luceneStore.getData(identifier)
+        return _toBytes(byteArray)
 
     def _maybeCommit(self):
         if len(self._latestModifications) > self._maxModifications:
@@ -185,6 +185,10 @@ JArray = None
 BytesRef = None
 StoreLucene = None
 JavaError = None
+
+def _toBytes(bytesRef):
+    return None if bytesRef is None else bytes([i & 0xff for i in bytesRef.bytes])
+
 
 def _importFromJava():
     global imported
