@@ -29,6 +29,8 @@ from meresco.core import Transparent
 class AddDeleteToMultiSequential(Transparent):
     """Provided for 'backwards' compatibility to allow MultiSequentialStorage to be passed 'add' and 'delete' messages by older components (in Meresco DNA)."""
     def add(self, identifier, partname, data):
+        if not type(data) is bytes:
+            data = bytes(data, encoding="utf-8")
         self.call.addData(identifier=identifier, name=partname, data=data)
         return
         yield
