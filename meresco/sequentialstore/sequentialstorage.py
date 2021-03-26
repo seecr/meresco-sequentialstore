@@ -34,12 +34,17 @@ from warnings import warn
 
 from .export import Export
 
+try:
+    from org.meresco.sequentialstore import StoreLucene
+    from lucene import JArray, JavaError
+    from org.apache.lucene.util import BytesRef
+except ImportError:
+    raise ImportError("initVM() not called: please add to your project: 'from lucene import initVM; initVM(); from meresco_sequentialstore import initVM; initVM()'")
 
 class SequentialStorage(object):
     version = '5'
 
     def __init__(self, directory, maxModifications=None):
-        _importFromJava()
         self._directory = directory
         if not isdir(directory):
             makedirs(directory)
@@ -180,38 +185,6 @@ class SequentialStorage(object):
 _DEFAULT_MAX_MODIFICATIONS = 10000
 _DELETED_RECORD = object()
 
-imported = False
-JArray = None
-BytesRef = None
-StoreLucene = None
-JavaError = None
-
 def _toBytes(bytesRef):
     return None if bytesRef is None else bytes([i & 0xff for i in bytesRef.bytes])
 
-
-def _importFromJava():
-    global imported
-    if imported:
-        return
-    _importVM()
-    from meresco_sequentialstore import initVM as initMerescoSequentialStore
-    initMerescoSequentialStore()
-    from org.meresco.sequentialstore import StoreLucene
-    from lucene import JArray, JavaError
-    from org.apache.lucene.util import BytesRef
-    globals().update(locals())
-    imported = True
-
-def _importVM():
-    maxheap = getenv('PYLUCENE_MAXHEAP')
-    if not maxheap:
-        maxheap = '4g'
-        warn("Using '4g' as maxheap for lucene.initVM(). To override use PYLUCENE_MAXHEAP environment variable.")
-    from lucene import initVM, getVMEnv
-    try:
-        VM = initVM(maxheap=maxheap)
-        # VM = initVM(maxheap=maxheap, vmargs='-agentlib:hprof=heap=sites')
-    except ValueError:
-        VM = getVMEnv()
-    return VM

@@ -35,6 +35,11 @@ from warnings import simplefilter, filterwarnings
 simplefilter('default')
 filterwarnings('ignore', message=r".*has no __module__ attribute.*", category=DeprecationWarning)
 
+from lucene import initVM
+initVM()
+from meresco_sequentialstore import initVM
+initVM()
+
 from performance_sequentialstoragetest import PerformanceSequentialStorageTest
 from diskspacetest import DiskSpaceTest
 
