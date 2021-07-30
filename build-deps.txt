@@ -1,7 +1,7 @@
-jcc-py3 (>= 3.10)
-jcc-py3 (<< 3.11)
-pylucene-py3 (>= 8.6.1)
-pylucene-py3 (<< 8.7)
+jcc-py3 (>= 3.10+r1891810)
+jcc-py3 (<< 3.101891811)
+pylucene-py3 (>= 8.9.0)
+pylucene-py3 (<< 8.10)
 gcc
 g++
 seecr-tools (>= 1.0.6)

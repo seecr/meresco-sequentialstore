@@ -39,5 +39,5 @@ seecr-build-jcc \
     --name=meresco-sequentialstore \
     --package=org/meresco/sequentialstore \
     --jcc=3.10 \
-    --lucene=8.6.1 \
+    --lucene=8.9.0 \
     --target=${target}
