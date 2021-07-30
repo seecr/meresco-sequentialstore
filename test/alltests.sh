@@ -29,7 +29,7 @@
 ## end license ##
 
 export LANG=en_US.UTF-8
-export PYTHONPATH=.:"$PYTHONPATH"
+export PYTHONPATH=../lib:.:"$PYTHONPATH"
 export WEIGHTLESS_COMPOSE_TEST="PYTHON"
 export PYTHONWARNINGS=default
 

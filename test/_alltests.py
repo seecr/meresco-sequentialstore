@@ -41,6 +41,8 @@ filterwarnings('ignore', message=r".*has no __module__ attribute.*", category=De
 
 from lucene import initVM
 initVM()
+import meresco_sequentialstore
+print(meresco_sequentialstore.__file__)
 from meresco_sequentialstore import initVM
 initVM()
 
