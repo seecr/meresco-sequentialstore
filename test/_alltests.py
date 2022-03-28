@@ -3,11 +3,11 @@
 #
 # "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
 #
-# Copyright (C) 2014, 2017-2018, 2020-2021 Seecr (Seek You Too B.V.) https://seecr.nl
+# Copyright (C) 2014, 2017-2018, 2020-2022 Seecr (Seek You Too B.V.) https://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 # Copyright (C) 2020-2021 Data Archiving and Network Services https://dans.knaw.nl
 # Copyright (C) 2020-2021 SURF https://www.surf.nl
-# Copyright (C) 2020-2021 Stichting Kennisnet https://www.kennisnet.nl
+# Copyright (C) 2020-2022 Stichting Kennisnet https://www.kennisnet.nl
 # Copyright (C) 2020-2021 The Netherlands Institute for Sound and Vision https://beeldengeluid.nl
 #
 # This file is part of "Meresco SequentialStore"
@@ -39,12 +39,9 @@ from warnings import simplefilter, filterwarnings
 simplefilter('default')
 filterwarnings('ignore', message=r".*has no __module__ attribute.*", category=DeprecationWarning)
 
-from lucene import initVM
-initVM()
+import lucene
 import meresco_sequentialstore
-print(meresco_sequentialstore.__file__)
-from meresco_sequentialstore import initVM
-initVM()
+lucene.initVM(classpath=":".join([lucene.CLASSPATH, meresco_sequentialstore.CLASSPATH]))
 
 
 from adddeletetomultisequentialtest import AddDeleteToMultiSequentialTest

@@ -2,7 +2,8 @@
  *
  * "Meresco SequentialStore" contains components facilitating efficient sequentially ordered storing and retrieval.
  *
- * Copyright (C) 2017-2018 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2017-2018, 2022 Seecr (Seek You Too B.V.) https://seecr.nl
+ * Copyright (C) 2022 Stichting Kennisnet https://www.kennisnet.nl
  *
  * This file is part of "Meresco SequentialStore"
  *
@@ -234,9 +235,20 @@ public class StoreLucene {
         };
     }
 
-    public PyIterator<Item> iteritems() throws IOException {
+    /* workaround for type of iterable not comming tough */
+    public interface ItemIterator {
+        public Item next();
+    }
+
+    public ItemIterator iteritems() throws IOException {
         // Requires reopen to be called first.
-        return iteritems(true, true);
+        PyIterator<Item> pi = iteritems(true, true);
+        return new ItemIterator() {
+            @Override
+            public Item next() {
+                return pi.next();
+            }
+        };
     }
 
     private PyIterator<Item> iteritems(boolean includeIdentifier, boolean includeData) throws IOException {
