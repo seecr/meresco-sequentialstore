@@ -30,7 +30,6 @@
 
 export LANG=en_US.UTF-8
 export PYTHONPATH=../lib:.:"$PYTHONPATH"
-export WEIGHTLESS_COMPOSE_TEST="PYTHON"
 export PYTHONWARNINGS=default
 
 python3 _alltests.py "$@"

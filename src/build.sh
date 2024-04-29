@@ -38,6 +38,6 @@ seecr-build-jcc \
     --path=$(cd $(dirname $0); pwd) \
     --name=meresco-sequentialstore \
     --package=org/meresco/sequentialstore \
-    --jcc=3.10 \
+    --jcc=3.13 \
     --lucene=8.9.0 \
     --target=${target}
